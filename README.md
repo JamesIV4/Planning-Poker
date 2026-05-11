@@ -1,73 +1,46 @@
-# React + TypeScript + Vite
+# Planning Poker
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+## [▶ Launch App](https://jamesiv4.github.io/Planning-Poker/)
 
-Currently, two official plugins are available:
+A real-time planning poker app for agile teams. Create a session, share the link, and estimate together — all peer-to-peer with no backend server required.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- **Instant sessions** — create a room and share the link, no sign-up needed
+- **Real-time sync** — peer-to-peer via WebRTC (PeerJS), no server storing your data
+- **Animated card reveals** — 3D flip animation with color-coded distance from consensus
+- **Vote distribution** — bar chart showing how votes spread across the Fibonacci deck
+- **Agreement metrics** — average score and agreement ratio with donut chart
+- **Multi-winner support** — ties highlighted in green
+- **Auto-reconnect** — clients silently reconnect if the connection drops
+- **Responsive layout** — adapts from wide desktop to narrow mobile, with a grid fallback for very small screens
+- **Dark mode** — dark-only UI designed for focus
+- **Bot simulation** — add simulated voters on localhost for testing
 
-## Expanding the ESLint configuration
+## Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- **React 19** + TypeScript
+- **Vite** for build and dev server
+- **Zustand** for state management
+- **PeerJS** for WebRTC peer-to-peer networking
+- **React Router** for client-side routing
+- **Vitest** + Testing Library for tests
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Development
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Testing
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm test
 ```
+
+## Deployment
+
+Deployed automatically to GitHub Pages on push to `main` via GitHub Actions.
