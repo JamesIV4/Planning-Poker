@@ -82,6 +82,18 @@ export function SessionPage() {
     }
   }, [gameState]);
 
+  // Update page title with session name
+  useEffect(() => {
+    if (session?.name) {
+      document.title = `Planning Poker - ${session.name}`;
+    } else {
+      document.title = "Planning Poker";
+    }
+    return () => {
+      document.title = "Planning Poker";
+    };
+  }, [session?.name]);
+
   // Simulated voters (localhost only)
   const simulatedPlayersRef = useRef<Player[]>([]);
   const showSimControls = isLocalhost() && isAdmin;
