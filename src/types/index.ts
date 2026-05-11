@@ -59,6 +59,10 @@ export interface KickMessage {
   type: "kicked";
 }
 
+export interface SessionEndedMessage {
+  type: "sessionEnded";
+}
+
 // Message protocol (player → admin)
 export interface ActionMessage {
   type: "action";

@@ -6,6 +6,7 @@ import type {
   SessionState,
   StateMessage,
   KickMessage,
+  SessionEndedMessage,
 } from "../types";
 import {
   isValidPlayerAction,
@@ -22,6 +23,7 @@ import {
 export interface PeerHost {
   createHost(sessionId: string): void;
   broadcastState(state: SessionState): void;
+  broadcastSessionEnded(): void;
   onPlayerAction(
     callback: (playerId: string, action: PlayerAction) => void,
   ): void;
@@ -260,6 +262,15 @@ export function createPeerHost(): PeerHost {
     }
   }
 
+  function broadcastSessionEnded(): void {
+    const message: SessionEndedMessage = { type: "sessionEnded" };
+    for (const conn of connections.values()) {
+      if (conn.open) {
+        conn.send(message);
+      }
+    }
+  }
+
   function destroy(): void {
     // Close all connections
     for (const conn of connections.values()) {
@@ -300,6 +311,7 @@ export function createPeerHost(): PeerHost {
   return {
     createHost,
     broadcastState,
+    broadcastSessionEnded,
     onPlayerAction,
     onPlayerConnected,
     onPlayerDisconnected,

@@ -25,6 +25,7 @@
 /* Banner styles for disconnected, kicked, error */
 .connection-status--disconnected,
 .connection-status--kicked,
+.connection-status--ended,
 .connection-status--error {
   background-color: var(--color-bg-elevated);
   border: 1px solid var(--color-border);
@@ -39,6 +40,10 @@
 
 .connection-status--kicked {
   border-color: var(--color-error);
+}
+
+.connection-status--ended {
+  border-color: var(--color-text-muted);
 }
 
 .connection-status--error {
@@ -62,6 +67,10 @@
 
 .connection-status--kicked .connection-status__icon {
   color: var(--color-error);
+}
+
+.connection-status--ended .connection-status__icon {
+  color: var(--color-text-muted);
 }
 
 .connection-status--error .connection-status__icon {

@@ -19,12 +19,14 @@ export interface PeerClient {
   onStateUpdate(callback: (state: SessionState) => void): void;
   onConnectionChange(callback: (connected: boolean) => void): void;
   onKicked(callback: () => void): void;
+  onSessionEnded(callback: () => void): void;
   destroy(): void;
 }
 
 type StateUpdateCallback = (state: SessionState) => void;
 type ConnectionChangeCallback = (connected: boolean) => void;
 type KickedCallback = () => void;
+type SessionEndedCallback = () => void;
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 2000;
@@ -40,6 +42,7 @@ export function createPeerClient(): PeerClient {
   let stateUpdateCallback: StateUpdateCallback | null = null;
   let connectionChangeCallback: ConnectionChangeCallback | null = null;
   let kickedCallback: KickedCallback | null = null;
+  let sessionEndedCallback: SessionEndedCallback | null = null;
   let retryCount = 0;
   let currentHostPeerId: string | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -214,6 +217,16 @@ export function createPeerClient(): PeerClient {
         }
         break;
       }
+      case "sessionEnded": {
+        console.log("[PeerClient] Session ended by host");
+        if (sessionEndedCallback) {
+          sessionEndedCallback();
+        }
+        if (connection) {
+          connection.close();
+        }
+        break;
+      }
       case "error": {
         console.warn("[PeerClient] Error from host:", message.payload);
         break;
@@ -245,6 +258,10 @@ export function createPeerClient(): PeerClient {
     kickedCallback = callback;
   }
 
+  function onSessionEnded(callback: SessionEndedCallback): void {
+    sessionEndedCallback = callback;
+  }
+
   function destroy(): void {
     if (retryTimer) {
       clearTimeout(retryTimer);
@@ -264,6 +281,7 @@ export function createPeerClient(): PeerClient {
     stateUpdateCallback = null;
     connectionChangeCallback = null;
     kickedCallback = null;
+    sessionEndedCallback = null;
     currentHostPeerId = null;
   }
 
@@ -273,6 +291,7 @@ export function createPeerClient(): PeerClient {
     onStateUpdate,
     onConnectionChange,
     onKicked,
+    onSessionEnded,
     destroy,
   };
 }

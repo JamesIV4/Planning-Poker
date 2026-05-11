@@ -27,10 +27,13 @@ let nameIndex = 0;
  */
 export function createSimulatedPlayer(): Player {
   const name = SIMULATED_NAMES[nameIndex % SIMULATED_NAMES.length];
+  const cycle = Math.floor(nameIndex / SIMULATED_NAMES.length);
   nameIndex++;
+  const displayName =
+    cycle === 0 ? `${name} (bot)` : `${name} ${cycle + 1} (bot)`;
   return {
     id: `sim-${nanoid(6)}`,
-    displayName: `${name} (bot)`,
+    displayName,
     isAdmin: false,
   };
 }

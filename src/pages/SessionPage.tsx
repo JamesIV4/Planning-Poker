@@ -66,6 +66,7 @@ export function SessionPage() {
     sendAction,
     sendVoteOptimistic,
     kickPlayer,
+    endSession,
     rejoin,
   } = useSessionConnection({
     sessionId: sessionId ?? "",
@@ -243,6 +244,7 @@ export function SessionPage() {
 
     // End session and navigate home
     const handleEndSession = () => {
+      endSession();
       clearSession();
       usePokerStore.setState({
         session: null,

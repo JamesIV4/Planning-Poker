@@ -51,6 +51,9 @@ function createMockClient() {
     onKicked: vi.fn((cb: (...args: unknown[]) => void) => {
       callbacks["kicked"] = cb;
     }),
+    onSessionEnded: vi.fn((cb: (...args: unknown[]) => void) => {
+      callbacks["sessionEnded"] = cb;
+    }),
     destroy: vi.fn(),
     _callbacks: callbacks,
     _triggerStateUpdate(state: SessionState) {
@@ -83,6 +86,7 @@ vi.mock("./peerClient", () => ({
 describe("useSessionConnection", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     // Reset the store
     usePokerStore.setState({
       session: null,
@@ -92,6 +96,7 @@ describe("useSessionConnection", () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -152,6 +157,8 @@ describe("useSessionConnection", () => {
       const session = usePokerStore.getState().session;
       expect(session?.players.find((p) => p.id === "player-1")).toBeUndefined();
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // State should be broadcast
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
       expect(result.current.connectionStatus).toBe("connected");
@@ -187,6 +194,8 @@ describe("useSessionConnection", () => {
       const session = usePokerStore.getState().session;
       expect(session?.players.find((p) => p.id === "player-1")).toBeUndefined();
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // State should be broadcast
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
     });
@@ -212,6 +221,8 @@ describe("useSessionConnection", () => {
       const session = usePokerStore.getState().session;
       expect(session?.players.find((p) => p.id === "player-1")).toBeDefined();
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // State should be broadcast
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
     });
@@ -249,6 +260,8 @@ describe("useSessionConnection", () => {
       );
       expect(vote?.card).toBe(8);
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // State should be broadcast
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
     });
@@ -296,6 +309,8 @@ describe("useSessionConnection", () => {
         usePokerStore.getState().castVote("player-1", 5);
       });
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // broadcastState should have been called via subscription
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
       mockHostInstance.broadcastState.mockClear();
@@ -305,6 +320,8 @@ describe("useSessionConnection", () => {
         usePokerStore.getState().revealCards();
       });
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // broadcastState should be called via subscription
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
     });
@@ -337,6 +354,8 @@ describe("useSessionConnection", () => {
         usePokerStore.getState().startNewVoting();
       });
 
+      // Flush throttled broadcast
+      act(() => { vi.advanceTimersByTime(100); });
       // broadcastState should be called via subscription
       expect(mockHostInstance.broadcastState).toHaveBeenCalled();
     });

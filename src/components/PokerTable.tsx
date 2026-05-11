@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import type { Player, Vote, GameState, CardValue } from "../types";
 import { PlayerCard } from "./PlayerCard";
 import "./PokerTable.css";
@@ -121,18 +122,26 @@ export function PokerTable({
     return winningCards.has(card);
   };
 
-  // Distribute players into slots: top row, right side (1 max), bottom row, left side (1 max)
-  // Order: top row first, then right, then bottom, then left
+  // Distribute players into slots around the table.
+  // Top and bottom rows take most players; left and right sides can take multiple stacked vertically.
   const getSlots = (total: number) => {
     if (total <= 1) return { top: total, right: 0, bottom: 0, left: 0 };
     if (total === 2) return { top: 1, right: 0, bottom: 1, left: 0 };
     if (total === 3) return { top: 1, right: 1, bottom: 1, left: 0 };
     if (total === 4) return { top: 1, right: 1, bottom: 1, left: 1 };
-    // 5+: fill left and right with 1 each, split the rest between top and bottom
-    const remaining = total - 2;
+    // 5+: put up to 3 on each side, rest split between top and bottom
+    const sideMax = Math.min(3, Math.floor((total - 2) / 4));
+    const leftCount = sideMax;
+    const rightCount = Math.min(sideMax, total - 2 - leftCount);
+    const remaining = total - leftCount - rightCount;
     const topCount = Math.ceil(remaining / 2);
     const bottomCount = Math.floor(remaining / 2);
-    return { top: topCount, right: 1, bottom: bottomCount, left: 1 };
+    return {
+      top: topCount,
+      right: rightCount,
+      bottom: bottomCount,
+      left: leftCount,
+    };
   };
 
   const getPlayerPosition = (index: number, total: number) => {
@@ -164,31 +173,177 @@ export function PokerTable({
     // Calculate position based on region
     switch (region) {
       case "top": {
-        const spacing = 100 / (regionCount + 1);
-        return { left: `${spacing * (posInRegion + 1)}%`, top: "0%" };
+        const usableWidth = 84;
+        const offset = (100 - usableWidth) / 2;
+        const spacing = usableWidth / (regionCount + 1);
+        return { left: `${offset + spacing * (posInRegion + 1)}%`, top: "0%" };
       }
       case "bottom": {
-        const spacing = 100 / (regionCount + 1);
-        return { left: `${spacing * (posInRegion + 1)}%`, top: "100%" };
+        const usableWidth = 84;
+        const offset = (100 - usableWidth) / 2;
+        const spacing = usableWidth / (regionCount + 1);
+        return {
+          left: `${offset + spacing * (posInRegion + 1)}%`,
+          top: "100%",
+        };
       }
-      case "left":
-        return { left: "0%", top: "50%" };
-      case "right":
-        return { left: "100%", top: "50%" };
+      case "left": {
+        const spacing = 100 / (regionCount + 1);
+        return { left: "5%", top: `${spacing * (posInRegion + 1)}%` };
+      }
+      case "right": {
+        const spacing = 100 / (regionCount + 1);
+        return { left: "95%", top: `${spacing * (posInRegion + 1)}%` };
+      }
     }
   };
 
-  // Scale the layout size based on player count
+  // Scale the layout based on player count
   const playerCount = players.length;
-  const layoutWidth = Math.min(800, Math.max(420, 320 + playerCount * 45));
-  const layoutHeight = Math.min(400, Math.max(260, 220 + playerCount * 20));
+  const slots = getSlots(playerCount);
+  const maxRowCount = Math.max(slots.top, slots.bottom);
+  const hasSidePlayers = slots.left > 0 || slots.right > 0;
+
+  // Width: start compact, grow with the number of players in the widest row.
+  // Each player needs ~85px of space. Minimum 360px, grows as needed.
+  const layoutWidth = Math.max(360, maxRowCount * 85 + 120);
+  // Height: ensure enough vertical space between top/bottom cards and the table.
+  // Minimum 300px so cards don't crowd the table surface.
+  const layoutHeight = Math.min(420, Math.max(300, 240 + playerCount * 12));
+
+  // Only scale cards down when a single row would overflow the available width.
+  const scaleFactor =
+    maxRowCount <= 12 ? 1 : Math.max(0.6, 1 - (maxRowCount - 12) * 0.04);
+  const cardWidth = Math.round(60 * scaleFactor);
+  const cardHeight = Math.round(84 * scaleFactor);
+  const nameSize = `${Math.max(0.55, 0.75 * scaleFactor)}rem`;
+  const valueSize = `${Math.max(0.8, 1.25 * scaleFactor)}rem`;
+
+  // Detect if the container is too narrow for the table layout
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [useCompactLayout, setUseCompactLayout] = useState(false);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const containerWidth = entry.contentRect.width;
+        // Switch to compact grid if the needed width exceeds the container
+        // with some margin (cards are ~80px each including name overflow)
+        const neededWidth = maxRowCount * 80 + 100;
+        setUseCompactLayout(containerWidth < neededWidth && playerCount > 4);
+      }
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [maxRowCount, playerCount]);
+
+  const layoutStyle: React.CSSProperties = {
+    width: `min(${layoutWidth}px, 100%)`,
+    height: `${layoutHeight}px`,
+    "--card-width": `${cardWidth}px`,
+    "--card-height": `${cardHeight}px`,
+    "--player-name-size": nameSize,
+    "--card-value-size": valueSize,
+    "--table-surface-width": hasSidePlayers ? "65%" : "75%",
+  } as React.CSSProperties;
+
+  // Render a player card with all its props (shared between layouts)
+  const renderPlayer = (player: Player) => (
+    <div key={player.id} className="poker-table__grid-player">
+      <PlayerCard
+        gameState={gameState}
+        hasVoted={hasVoted(player.id)}
+        voteValue={getVoteValue(player.id)}
+        wasChanged={votesChanged.has(player.id)}
+        playerName={player.displayName}
+        isWinner={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isWinnerCard(getVoteValue(player.id)!)
+            : false
+        }
+        isSpecial={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isSpecialCard(getVoteValue(player.id)!)
+            : false
+        }
+        distanceRatio={
+          gameState === "revealed" && hasVoted(player.id)
+            ? getDistanceRatio(getVoteValue(player.id)!)
+            : 0
+        }
+      />
+      <span className="poker-table__grid-name">{player.displayName}</span>
+    </div>
+  );
+
+  // Compact grid layout for narrow screens
+  if (useCompactLayout) {
+    return (
+      <div
+        className="poker-table poker-table--compact"
+        role="region"
+        aria-label="Poker table"
+        ref={containerRef}
+      >
+        <div className="poker-table__compact-controls">
+          {isAdmin && gameState === "waiting" && (
+            <button
+              className="poker-table__action-btn"
+              onClick={onStartNewVoting}
+            >
+              Start Voting
+            </button>
+          )}
+          {isAdmin && gameState === "voting" && (
+            <button className="poker-table__action-btn" onClick={onRevealCards}>
+              Reveal Cards
+            </button>
+          )}
+          {isAdmin && gameState === "revealed" && (
+            <button
+              className="poker-table__action-btn"
+              onClick={onStartNewVoting}
+            >
+              Start New Voting
+            </button>
+          )}
+          {!isAdmin && gameState === "waiting" && (
+            <div className="poker-table__status">
+              Waiting for voting to begin...
+            </div>
+          )}
+          {!isAdmin && gameState === "voting" && (
+            <div className="poker-table__status">Pick your estimate</div>
+          )}
+        </div>
+        <div
+          className="poker-table__grid"
+          style={
+            {
+              "--card-width": `${cardWidth}px`,
+              "--card-height": `${cardHeight}px`,
+              "--card-value-size": valueSize,
+            } as React.CSSProperties
+          }
+        >
+          {players.map(renderPlayer)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="poker-table" role="region" aria-label="Poker table">
-      <div
-        className="poker-table__layout"
-        style={{ width: `${layoutWidth}px`, height: `${layoutHeight}px` }}
-      >
+    <div
+      className="poker-table"
+      role="region"
+      aria-label="Poker table"
+      ref={containerRef}
+    >
+      <div className="poker-table__layout" style={layoutStyle}>
         {/* Players positioned in slots around the table */}
         {players.map((player, index) => {
           const pos = getPlayerPosition(index, players.length);
@@ -256,13 +411,7 @@ export function PokerTable({
         })}
 
         {/* Table surface with controls in the center */}
-        <div
-          className="poker-table__surface"
-          style={{
-            width: `${Math.min(layoutWidth * 0.55, 500)}px`,
-            height: `${Math.min(layoutHeight * 0.5, 180)}px`,
-          }}
-        >
+        <div className="poker-table__surface">
           {isAdmin && (
             <div className="poker-table__controls">
               {gameState === "waiting" && (

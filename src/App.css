@@ -156,9 +156,8 @@
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 900px;
   margin: 0 auto;
-  padding: 0 1rem 0.75rem;
+  padding: 0 0.5rem 0.5rem;
   flex: 1;
   height: calc(100dvh - 54px);
   overflow: hidden;
@@ -170,7 +169,7 @@
   max-width: none;
   border-radius: 0;
   border: none;
-  padding: 0 1.5rem 0.75rem;
+  padding: 0 clamp(0.5rem, 2vw, 1.5rem) 0.75rem;
   background-color: var(--color-bg);
   box-shadow: none;
 }
@@ -264,4 +263,38 @@
 .session-header__sim-btn--remove:hover {
   background-color: var(--color-text-muted);
   color: var(--color-bg);
+}
+
+/* Responsive: small screens */
+@media (max-width: 600px) {
+  .session-header {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .session-header__name {
+    font-size: 0.9375rem;
+  }
+
+  .session-header__actions {
+    gap: 0.25rem;
+  }
+
+  .session-header__copy-btn,
+  .session-header__end-btn,
+  .session-header__sim-btn {
+    padding: 0.375rem 0.625rem;
+    font-size: 0.75rem;
+  }
+
+  .create-session-card,
+  .session-card {
+    padding: 1.5rem;
+  }
+}
+
+/* Responsive: medium screens and up — give more breathing room */
+@media (min-width: 1200px) {
+  .game-view {
+    padding: 0 1.5rem 0.75rem;
+  }
 }

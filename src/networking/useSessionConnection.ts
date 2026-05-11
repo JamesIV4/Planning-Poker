@@ -10,6 +10,7 @@ export type ConnectionStatusType =
   | "connected"
   | "disconnected"
   | "kicked"
+  | "ended"
   | "error";
 
 export interface UseSessionConnectionOptions {
@@ -23,6 +24,7 @@ export interface UseSessionConnectionResult {
   sendAction: (action: PlayerAction) => void;
   sendVoteOptimistic: (card: CardValue) => void;
   kickPlayer: (playerId: string) => void;
+  endSession: () => void;
   rejoin: () => void;
 }
 
@@ -115,15 +117,34 @@ export function useSessionConnection({
     // Always (re-)subscribe to store changes for broadcasting.
     // This ensures the subscription survives React Strict Mode's
     // effect cleanup/re-run cycle.
-    const unsubscribe = usePokerStore.subscribe(() => {
+    // Throttle broadcasts to avoid overwhelming data channels during rapid changes.
+    let broadcastTimer: ReturnType<typeof setTimeout> | null = null;
+    const throttledBroadcast = () => {
+      if (broadcastTimer) return; // Already scheduled
+      broadcastTimer = setTimeout(() => {
+        broadcastTimer = null;
+        const freshState = buildFreshState();
+        if (freshState && hostRef.current) {
+          hostRef.current.broadcastState(freshState);
+        }
+      }, 50); // 50ms debounce — batches rapid changes, still feels instant
+    };
+
+    const unsubscribe = usePokerStore.subscribe(throttledBroadcast);
+
+    // Heartbeat: periodically broadcast state to catch silent connection drops.
+    // Clients that missed updates will get the latest state.
+    const heartbeatInterval = setInterval(() => {
       const freshState = buildFreshState();
       if (freshState && hostRef.current) {
         hostRef.current.broadcastState(freshState);
       }
-    });
+    }, 5000);
 
     return () => {
       unsubscribe();
+      if (broadcastTimer) clearTimeout(broadcastTimer);
+      clearInterval(heartbeatInterval);
     };
   }, [isAdmin, sessionId]);
 
@@ -222,6 +243,10 @@ export function useSessionConnection({
         setConnectionStatus("kicked");
       });
 
+      newClient.onSessionEnded(() => {
+        setConnectionStatus("ended");
+      });
+
       newClient.connectToHost(sid);
     }, delay);
   }, []);
@@ -239,7 +264,11 @@ export function useSessionConnection({
     const client = createPeerClient();
     clientRef.current = client;
 
+    // Track last message time for staleness detection
+    let lastMessageTime = Date.now();
+
     client.onStateUpdate((state: SessionState) => {
+      lastMessageTime = Date.now();
       console.log(
         "[useSessionConnection] Received state update from host, players:",
         state.session?.players?.length ?? 0,
@@ -248,6 +277,24 @@ export function useSessionConnection({
       );
       usePokerStore.getState().applyAuthoritativeState(state);
     });
+
+    // Staleness check: if no message from host in 12 seconds while "connected",
+    // the connection may have silently dropped. Trigger reconnect.
+    const stalenessCheck = setInterval(() => {
+      const elapsed = Date.now() - lastMessageTime;
+      if (elapsed > 12000 && clientRef.current === client) {
+        console.warn(
+          "[useSessionConnection] No message from host in 12s, reconnecting...",
+        );
+        clearInterval(stalenessCheck);
+        // Trigger reconnect by simulating a disconnect
+        setConnectionStatus((prev) => {
+          if (prev === "kicked" || prev === "ended") return prev;
+          attemptReconnect(sessionId, 0);
+          return "disconnected";
+        });
+      }
+    }, 5000);
 
     client.onConnectionChange((connected: boolean) => {
       console.log("[useSessionConnection] Connection changed:", connected);
@@ -263,7 +310,7 @@ export function useSessionConnection({
         }
       } else {
         setConnectionStatus((prev) => {
-          if (prev === "kicked") return "kicked";
+          if (prev === "kicked" || prev === "ended") return prev;
           // Start silent reconnection immediately
           attemptReconnect(sessionId, 0);
           // Keep status as "connected" briefly — the banner delay in
@@ -278,11 +325,17 @@ export function useSessionConnection({
       setConnectionStatus("kicked");
     });
 
+    client.onSessionEnded(() => {
+      console.log("[useSessionConnection] Session ended by host");
+      setConnectionStatus("ended");
+    });
+
     console.log("[useSessionConnection] Calling connectToHost:", sessionId);
     client.connectToHost(sessionId);
 
     return () => {
-      // Same pattern: don't destroy in Strict Mode re-invoke
+      // Clean up staleness check. Don't destroy client in Strict Mode re-invoke.
+      clearInterval(stalenessCheck);
     };
   }, [isAdmin, sessionId, hasJoined]);
 
@@ -309,6 +362,16 @@ export function useSessionConnection({
     if (!hostRef.current) return;
     hostRef.current.kickPlayer(playerId);
     usePokerStore.getState().kickPlayer(playerId);
+  }, []);
+
+  // End session (admin side) — notify all clients before destroying
+  const endSession = useCallback(() => {
+    if (hostRef.current) {
+      hostRef.current.broadcastSessionEnded();
+      hostRef.current.destroy();
+      hostRef.current = null;
+      hostInitializedRef.current = false;
+    }
   }, []);
 
   // Rejoin after being kicked (player side)
@@ -346,6 +409,10 @@ export function useSessionConnection({
       setConnectionStatus("kicked");
     });
 
+    client.onSessionEnded(() => {
+      setConnectionStatus("ended");
+    });
+
     client.connectToHost(sessionId);
   }, [sessionId]);
 
@@ -354,6 +421,7 @@ export function useSessionConnection({
     sendAction,
     sendVoteOptimistic,
     kickPlayer,
+    endSession,
     rejoin,
   };
 }

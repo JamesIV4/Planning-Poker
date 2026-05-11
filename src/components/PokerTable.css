@@ -9,11 +9,15 @@
   flex: 1;
   min-height: 0;
   overflow: visible;
+  flex-shrink: 1;
+  padding: 0 0.5rem;
 }
 
 /* Layout wrapper: relative container for absolute player positioning */
 .poker-table__layout {
   position: relative;
+  margin: 0 auto;
+  transition: width 0.3s ease;
 }
 
 /* Players positioned absolutely in a circle */
@@ -23,7 +27,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.35rem;
+  gap: 0.25rem;
   z-index: 1;
 }
 
@@ -34,9 +38,9 @@
 }
 
 .poker-table__player-name {
-  font-size: 0.75rem;
+  font-size: var(--player-name-size, 0.75rem);
   color: var(--color-text);
-  max-width: 80px;
+  max-width: 70px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -104,6 +108,8 @@
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   z-index: 0;
+  width: var(--table-surface-width, 75%);
+  height: 50%;
 }
 
 /* Controls in the center of the table */
@@ -132,5 +138,76 @@
 .poker-table__status {
   color: var(--color-text-muted);
   font-size: 0.8125rem;
+  text-align: center;
+}
+
+/* Responsive: small screens */
+@media (max-width: 600px) {
+  .poker-table__player-name {
+    max-width: 50px;
+    font-size: 0.625rem;
+  }
+
+  .poker-table__surface {
+    width: min(var(--table-surface-width, 65%), 60%) !important;
+    height: 45%;
+    border-radius: var(--radius-lg);
+  }
+
+  .poker-table__action-btn {
+    padding: 0.5rem 1rem;
+    font-size: 0.8125rem;
+  }
+
+  .poker-table__status {
+    font-size: 0.75rem;
+  }
+}
+
+/* Responsive: large screens — use the space */
+@media (min-width: 1400px) {
+  .poker-table__surface {
+    width: 70%;
+    height: 55%;
+  }
+}
+
+/* Compact grid layout — fallback when screen is too narrow for table layout */
+.poker-table--compact {
+  justify-content: flex-start;
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+
+.poker-table__compact-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0 0.75rem;
+  flex-shrink: 0;
+}
+
+.poker-table__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0 0.25rem;
+}
+
+.poker-table__grid-player {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.poker-table__grid-name {
+  font-size: 0.625rem;
+  color: var(--color-text-muted);
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: center;
 }

@@ -20,27 +20,12 @@ describe("ConnectionStatus", () => {
     vi.useRealTimers();
   });
   describe("connected state", () => {
-    it("renders a small green indicator", () => {
+    it("renders nothing when connected", () => {
       const { container } = renderStatus({ status: "connected" });
 
       expect(
-        container.querySelector(".connection-status--connected"),
-      ).toBeInTheDocument();
-      expect(
-        container.querySelector(".connection-status__indicator"),
-      ).toBeInTheDocument();
-    });
-
-    it("has an accessible label", () => {
-      renderStatus({ status: "connected" });
-
-      expect(screen.getByLabelText("Connected")).toBeInTheDocument();
-    });
-
-    it("uses role=status for non-intrusive announcement", () => {
-      renderStatus({ status: "connected" });
-
-      expect(screen.getByRole("status")).toBeInTheDocument();
+        container.querySelector(".connection-status"),
+      ).not.toBeInTheDocument();
     });
   });
 

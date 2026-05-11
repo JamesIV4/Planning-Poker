@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import "./ConnectionStatus.css";
 
 export interface ConnectionStatusProps {
-  status: "connected" | "disconnected" | "kicked" | "error";
+  status: "connected" | "disconnected" | "kicked" | "ended" | "error";
   onRejoin?: () => void;
 }
 
@@ -28,8 +28,8 @@ export function ConnectionStatus({ status, onRejoin }: ConnectionStatusProps) {
       return;
     }
 
-    if (status === "kicked") {
-      // Show kicked banner immediately (user action)
+    if (status === "kicked" || status === "ended") {
+      // Show kicked/ended banner immediately (intentional host action)
       setReady(true);
       return;
     }
@@ -89,6 +89,24 @@ export function ConnectionStatus({ status, onRejoin }: ConnectionStatusProps) {
               Rejoin
             </button>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "ended") {
+    return (
+      <div
+        className="connection-status connection-status--ended"
+        role="alert"
+        aria-live="assertive"
+      >
+        <div className="connection-status__content">
+          <span className="connection-status__icon">🏁</span>
+          <div className="connection-status__text">
+            <strong>Session ended</strong>
+            <p>The host has ended this session.</p>
+          </div>
         </div>
       </div>
     );
