@@ -22,6 +22,7 @@ export function SessionPage() {
   const [displayName, setDisplayName] = useState("");
   const [error, setError] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingParticipants, setIsEditingParticipants] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
@@ -267,14 +268,19 @@ export function SessionPage() {
             >
               {copied ? "Copied!" : "Copy Link"}
             </button>
-            {isAdmin && (
+            {isAdmin && players.length > 1 && (
               <button
-                className="session-header__end-btn"
-                onClick={handleEndSession}
+                className={`session-header__copy-btn${isEditingParticipants ? " session-header__copy-btn--active" : ""}`}
+                onClick={() => setIsEditingParticipants((prev) => !prev)}
                 type="button"
-                aria-label="End session"
+                aria-label={
+                  isEditingParticipants
+                    ? "Done editing participants"
+                    : "Edit participants"
+                }
+                aria-pressed={isEditingParticipants}
               >
-                End Session
+                {isEditingParticipants ? "Done" : "Edit Participants"}
               </button>
             )}
             {showSimControls && (
@@ -299,6 +305,16 @@ export function SessionPage() {
                 </button>
               </>
             )}
+            {isAdmin && (
+              <button
+                className="session-header__end-btn"
+                onClick={handleEndSession}
+                type="button"
+                aria-label="End session"
+              >
+                End Session
+              </button>
+            )}
           </div>
         </header>
 
@@ -311,6 +327,7 @@ export function SessionPage() {
             gameState={gameState}
             isAdmin={isAdmin}
             isEditing={isEditing}
+            isEditingParticipants={isEditingParticipants}
             currentPlayerId={currentPlayerId}
             votesChanged={votesChanged}
             onRevealCards={handleRevealCards}

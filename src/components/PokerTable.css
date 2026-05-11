@@ -16,7 +16,7 @@
 /* Layout wrapper: relative container for absolute player positioning */
 .poker-table__layout {
   position: relative;
-  margin: 0 auto;
+  margin: 60px auto 60px;
   transition: width 0.3s ease;
 }
 

@@ -28,6 +28,7 @@ function renderTable(overrides: Partial<PokerTableProps> = {}) {
     gameState: "voting",
     isAdmin: true,
     isEditing: false,
+    isEditingParticipants: false,
     currentPlayerId: "player-0",
     votesChanged: new Set(),
     onRevealCards: vi.fn(),
@@ -182,28 +183,28 @@ describe("PokerTable", () => {
     expect(valueElements.length).toBe(2);
   });
 
-  it("shows kick button for non-admin players when user is admin", () => {
-    renderTable({ isAdmin: true });
+  it("shows kick button for non-admin players when user is admin and editing participants", () => {
+    renderTable({ isAdmin: true, isEditingParticipants: true });
 
     expect(screen.getByLabelText("Remove Player 1")).toBeInTheDocument();
     expect(screen.getByLabelText("Remove Player 2")).toBeInTheDocument();
   });
 
   it("does not show kick button for admin player", () => {
-    renderTable({ isAdmin: true });
+    renderTable({ isAdmin: true, isEditingParticipants: true });
 
     expect(screen.queryByLabelText("Remove Player 0")).not.toBeInTheDocument();
   });
 
-  it("does not show kick buttons for non-admin users", () => {
-    renderTable({ isAdmin: false });
+  it("does not show kick buttons when not editing participants", () => {
+    renderTable({ isAdmin: true, isEditingParticipants: false });
 
     expect(screen.queryByLabelText("Remove Player 1")).not.toBeInTheDocument();
   });
 
   it("calls onKickPlayer with correct player ID when kick button is clicked", () => {
     const onKickPlayer = vi.fn();
-    renderTable({ isAdmin: true, onKickPlayer });
+    renderTable({ isAdmin: true, isEditingParticipants: true, onKickPlayer });
 
     fireEvent.click(screen.getByLabelText("Remove Player 1"));
 

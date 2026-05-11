@@ -9,6 +9,7 @@ export interface PokerTableProps {
   gameState: GameState;
   isAdmin: boolean;
   isEditing: boolean;
+  isEditingParticipants: boolean;
   currentPlayerId: string;
   votesChanged: Set<string>;
   onRevealCards: () => void;
@@ -29,6 +30,7 @@ export function PokerTable({
   gameState,
   isAdmin,
   isEditing,
+  isEditingParticipants,
   currentPlayerId,
   votesChanged,
   onRevealCards,
@@ -124,15 +126,17 @@ export function PokerTable({
 
   // Distribute players into slots around the table.
   // Top and bottom rows take most players; left and right sides can take multiple stacked vertically.
-  const getSlots = (total: number) => {
+  // maxSideSlots is reduced when vertical space is tight.
+  const getSlots = (total: number, maxSide: number) => {
     if (total <= 1) return { top: total, right: 0, bottom: 0, left: 0 };
     if (total === 2) return { top: 1, right: 0, bottom: 1, left: 0 };
     if (total === 3) return { top: 1, right: 1, bottom: 1, left: 0 };
     if (total === 4) return { top: 1, right: 1, bottom: 1, left: 1 };
-    // 5+: put up to 3 on each side, rest split between top and bottom
-    const sideMax = Math.min(3, Math.floor((total - 2) / 4));
+    // 5+: sides scale with player count — 3 per side only at 20+, 2 at 10+
+    const sideByCount = total >= 20 ? 3 : total >= 10 ? 2 : 1;
+    const sideMax = Math.min(maxSide, sideByCount);
     const leftCount = sideMax;
-    const rightCount = Math.min(sideMax, total - 2 - leftCount);
+    const rightCount = sideMax;
     const remaining = total - leftCount - rightCount;
     const topCount = Math.ceil(remaining / 2);
     const bottomCount = Math.floor(remaining / 2);
@@ -144,8 +148,8 @@ export function PokerTable({
     };
   };
 
-  const getPlayerPosition = (index: number, total: number) => {
-    const slots = getSlots(total);
+  const getPlayerPosition = (index: number, total: number, maxSide: number) => {
+    const slots = getSlots(total, maxSide);
 
     // Assign player to a slot region
     let region: "top" | "right" | "bottom" | "left";
@@ -188,40 +192,31 @@ export function PokerTable({
         };
       }
       case "left": {
-        const spacing = 100 / (regionCount + 1);
-        return { left: "5%", top: `${spacing * (posInRegion + 1)}%` };
+        // Spread side players across nearly the full height for maximum spacing
+        const usableHeight = 96;
+        const vOffset = (100 - usableHeight) / 2;
+        const spacing = usableHeight / (regionCount + 1);
+        return { left: "5%", top: `${vOffset + spacing * (posInRegion + 1)}%` };
       }
       case "right": {
-        const spacing = 100 / (regionCount + 1);
-        return { left: "95%", top: `${spacing * (posInRegion + 1)}%` };
+        const usableHeight = 96;
+        const vOffset = (100 - usableHeight) / 2;
+        const spacing = usableHeight / (regionCount + 1);
+        return {
+          left: "95%",
+          top: `${vOffset + spacing * (posInRegion + 1)}%`,
+        };
       }
     }
   };
 
   // Scale the layout based on player count
   const playerCount = players.length;
-  const slots = getSlots(playerCount);
-  const maxRowCount = Math.max(slots.top, slots.bottom);
-  const hasSidePlayers = slots.left > 0 || slots.right > 0;
 
-  // Width: start compact, grow with the number of players in the widest row.
-  // Each player needs ~85px of space. Minimum 360px, grows as needed.
-  const layoutWidth = Math.max(360, maxRowCount * 85 + 120);
-  // Height: ensure enough vertical space between top/bottom cards and the table.
-  // Minimum 300px so cards don't crowd the table surface.
-  const layoutHeight = Math.min(420, Math.max(300, 240 + playerCount * 12));
-
-  // Only scale cards down when a single row would overflow the available width.
-  const scaleFactor =
-    maxRowCount <= 12 ? 1 : Math.max(0.6, 1 - (maxRowCount - 12) * 0.04);
-  const cardWidth = Math.round(60 * scaleFactor);
-  const cardHeight = Math.round(84 * scaleFactor);
-  const nameSize = `${Math.max(0.55, 0.75 * scaleFactor)}rem`;
-  const valueSize = `${Math.max(0.8, 1.25 * scaleFactor)}rem`;
-
-  // Detect if the container is too narrow for the table layout
+  // Detect available vertical space to decide side slot count and card scaling
   const containerRef = useRef<HTMLDivElement>(null);
   const [useCompactLayout, setUseCompactLayout] = useState(false);
+  const [availableHeight, setAvailableHeight] = useState(600);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -230,16 +225,58 @@ export function PokerTable({
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const containerWidth = entry.contentRect.width;
-        // Switch to compact grid if the needed width exceeds the container
-        // with some margin (cards are ~80px each including name overflow)
-        const neededWidth = maxRowCount * 80 + 100;
-        setUseCompactLayout(containerWidth < neededWidth && playerCount > 4);
+        const containerHeight = entry.contentRect.height;
+        setAvailableHeight(containerHeight);
+
+        // Determine max side slots based on available height
+        const currentMaxSide =
+          containerHeight < 400 ? 1 : containerHeight < 500 ? 2 : 3;
+        const currentSlots = getSlots(playerCount, currentMaxSide);
+        const currentMaxRow = Math.max(currentSlots.top, currentSlots.bottom);
+
+        // Switch to compact grid only as a last resort
+        const minNeededWidth = currentMaxRow * 75 + 80;
+        setUseCompactLayout(containerWidth < minNeededWidth && playerCount > 5);
       }
     });
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [maxRowCount, playerCount]);
+  }, [playerCount]);
+
+  // Determine max side slots based on available height
+  const maxSideSlots =
+    availableHeight < 400 ? 1 : availableHeight < 500 ? 2 : 3;
+
+  const slots = getSlots(playerCount, maxSideSlots);
+  const maxRowCount = Math.max(slots.top, slots.bottom);
+  const hasSidePlayers = slots.left > 0 || slots.right > 0;
+
+  // Width strategy: prefer wider table with generous spacing between cards.
+  const idealSpacing = 130;
+  const layoutWidth = Math.max(400, maxRowCount * idealSpacing + 140);
+
+  // Height: ensure enough vertical space for side players.
+  const sideCount = Math.max(slots.left, slots.right);
+  const minHeightForSides = sideCount >= 3 ? 450 : sideCount >= 2 ? 380 : 300;
+  // Don't exceed available height minus margins (120px for top+bottom margins)
+  const maxLayoutHeight = Math.max(250, availableHeight - 120);
+  const layoutHeight = Math.min(
+    maxLayoutHeight,
+    Math.max(minHeightForSides, 240 + playerCount * 12),
+  );
+
+  // Scale cards down if the layout height is too tight for the content
+  const verticalSpacePerSideCard =
+    sideCount > 0 ? layoutHeight / (sideCount + 1) : 999;
+  const verticalScale =
+    verticalSpacePerSideCard < 110
+      ? Math.max(0.65, verticalSpacePerSideCard / 110)
+      : 1;
+  const cardWidth = Math.round(60 * verticalScale);
+  const cardHeight = Math.round(84 * verticalScale);
+  const nameSize = `${Math.max(0.55, 0.75 * verticalScale)}rem`;
+  const valueSize = `${Math.max(0.8, 1.25 * verticalScale)}rem`;
 
   const layoutStyle: React.CSSProperties = {
     width: `min(${layoutWidth}px, 100%)`,
@@ -346,7 +383,7 @@ export function PokerTable({
       <div className="poker-table__layout" style={layoutStyle}>
         {/* Players positioned in slots around the table */}
         {players.map((player, index) => {
-          const pos = getPlayerPosition(index, players.length);
+          const pos = getPlayerPosition(index, players.length, maxSideSlots);
           return (
             <div
               key={player.id}
@@ -362,7 +399,7 @@ export function PokerTable({
                     ★
                   </span>
                 )}
-                {isAdmin && !player.isAdmin && (
+                {isEditingParticipants && !player.isAdmin && (
                   <button
                     className="poker-table__kick-btn"
                     onClick={() => onKickPlayer(player.id)}
