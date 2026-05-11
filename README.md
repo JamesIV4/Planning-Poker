@@ -1,6 +1,6 @@
 # Planning Poker
 
-## [▶ Launch App](https://jamesiv4.github.io/Planning-Poker/)
+## [Launch App](https://jamesiv4.github.io/Planning-Poker/)
 
 A real-time planning poker app for agile teams. Create a session, share the link, and estimate together — all peer-to-peer with no backend server required.
 
