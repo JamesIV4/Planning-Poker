@@ -1,0 +1,106 @@
+/* ConnectionStatus component styles */
+
+.connection-status {
+  width: 100%;
+  z-index: 100;
+}
+
+/* Connected state: small green indicator */
+.connection-status--connected {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  width: auto;
+}
+
+.connection-status__indicator {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--color-success);
+  box-shadow: 0 0 6px var(--color-success);
+}
+
+/* Banner styles for disconnected, kicked, error */
+.connection-status--disconnected,
+.connection-status--kicked,
+.connection-status--error {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow-md);
+}
+
+.connection-status--disconnected {
+  border-color: var(--color-warning);
+}
+
+.connection-status--kicked {
+  border-color: var(--color-error);
+}
+
+.connection-status--error {
+  border-color: var(--color-error);
+}
+
+.connection-status__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.connection-status__icon {
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.connection-status--disconnected .connection-status__icon {
+  color: var(--color-warning);
+}
+
+.connection-status--kicked .connection-status__icon {
+  color: var(--color-error);
+}
+
+.connection-status--error .connection-status__icon {
+  color: var(--color-error);
+}
+
+.connection-status__text {
+  flex: 1;
+}
+
+.connection-status__text strong {
+  display: block;
+  color: var(--color-text-heading);
+  font-size: 0.9375rem;
+  margin-bottom: 0.125rem;
+}
+
+.connection-status__text p {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.connection-status__rejoin-btn {
+  padding: 0.5rem 1rem;
+  background-color: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s;
+  flex-shrink: 0;
+}
+
+.connection-status__rejoin-btn:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.connection-status__rejoin-btn:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}

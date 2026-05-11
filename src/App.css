@@ -1,0 +1,267 @@
+/* App-level styles */
+
+/* Create Session Page */
+.create-session-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1rem;
+}
+
+.create-session-card {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+}
+
+.create-session-card h1 {
+  margin-bottom: 0.5rem;
+}
+
+.create-session-card .subtitle {
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+}
+
+.create-session-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.create-session-form label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.create-session-form input {
+  padding: 0.625rem 0.875rem;
+  font-size: 1rem;
+}
+
+.btn-primary {
+  margin-top: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  background-color: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: var(--color-accent-hover);
+}
+
+.error-message {
+  color: var(--color-error);
+  font-size: 0.875rem;
+}
+
+/* Session Page */
+.session-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 1rem;
+}
+
+.session-page--game {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  padding: 0;
+  gap: 0;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.session-card {
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 2.5rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: var(--shadow-lg);
+}
+
+.session-card h1 {
+  margin-bottom: 0.5rem;
+}
+
+.session-card .subtitle {
+  color: var(--color-text-muted);
+  margin-bottom: 2rem;
+}
+
+.join-session-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.join-session-form label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.join-session-form input {
+  padding: 0.625rem 0.875rem;
+  font-size: 1rem;
+}
+
+.session-error-state {
+  text-align: center;
+}
+
+.session-error-state h2 {
+  margin-bottom: 0.5rem;
+}
+
+.session-error-state .subtitle {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.btn-link {
+  display: inline-block;
+  text-align: center;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--color-accent);
+  transition: background-color 0.2s;
+}
+
+.btn-link:hover {
+  background-color: var(--color-accent-hover);
+  color: #fff;
+}
+
+.game-view {
+  color: var(--color-text);
+  font-size: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem 0.75rem;
+  flex: 1;
+  height: calc(100dvh - 54px);
+  overflow: hidden;
+}
+
+/* Card selection fills remaining space and sits at the bottom */
+.game-view .card-selection-panel {
+  width: 100vw;
+  max-width: none;
+  border-radius: 0;
+  border: none;
+  padding: 0 1.5rem 0.75rem;
+  background-color: var(--color-bg);
+  box-shadow: none;
+}
+
+/* Session Header / Top Bar */
+.session-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  background-color: var(--color-bg-elevated);
+  border-bottom: 1px solid var(--color-border);
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.session-header__name {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-heading);
+  margin: 0;
+}
+
+.session-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.session-header__copy-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-accent);
+  background-color: var(--color-accent-muted);
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+
+.session-header__copy-btn:hover {
+  background-color: var(--color-accent);
+  color: #fff;
+}
+
+.session-header__end-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-error);
+  background-color: rgba(248, 113, 113, 0.1);
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+
+.session-header__end-btn:hover {
+  background-color: var(--color-error);
+  color: #fff;
+}
+
+.session-header__sim-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-warning);
+  background-color: rgba(251, 191, 36, 0.1);
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+
+.session-header__sim-btn:hover {
+  background-color: var(--color-warning);
+  color: #000;
+}
+
+.session-header__sim-btn--remove {
+  color: var(--color-text-muted);
+  background-color: var(--color-surface);
+}
+
+.session-header__sim-btn--remove:hover {
+  background-color: var(--color-text-muted);
+  color: var(--color-bg);
+}

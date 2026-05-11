@@ -1,0 +1,136 @@
+/* PokerTable component styles */
+
+.poker-table {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+}
+
+/* Layout wrapper: relative container for absolute player positioning */
+.poker-table__layout {
+  position: relative;
+}
+
+/* Players positioned absolutely in a circle */
+.poker-table__player {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  z-index: 1;
+}
+
+.poker-table__player-info {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.poker-table__player-name {
+  font-size: 0.75rem;
+  color: var(--color-text);
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.poker-table__admin-badge {
+  color: var(--color-warning);
+  font-size: 0.7rem;
+}
+
+.poker-table__kick-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+
+.poker-table__kick-btn:hover {
+  color: var(--color-error);
+  background-color: rgba(248, 113, 113, 0.1);
+}
+
+.poker-table__edit-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+  transition:
+    color 0.2s,
+    background-color 0.2s;
+}
+
+.poker-table__edit-btn:hover {
+  color: var(--color-accent);
+  background-color: var(--color-accent-muted);
+}
+
+.poker-table__edit-btn--active {
+  color: var(--color-accent);
+  background-color: var(--color-accent-muted);
+}
+
+/* The table surface — centered in the layout */
+.poker-table__surface {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-bg-elevated);
+  border: 2px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  z-index: 0;
+}
+
+/* Controls in the center of the table */
+.poker-table__controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.poker-table__action-btn {
+  padding: 0.625rem 1.25rem;
+  background-color: var(--color-accent);
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.9375rem;
+  border-radius: var(--radius-md);
+  transition: background-color 0.2s;
+  box-shadow: var(--shadow-md);
+}
+
+.poker-table__action-btn:hover {
+  background-color: var(--color-accent-hover);
+}
+
+/* Status message for non-admin players */
+.poker-table__status {
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  text-align: center;
+}

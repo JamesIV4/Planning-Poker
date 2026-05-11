@@ -1,0 +1,146 @@
+/* ResultsDisplay component styles */
+
+.results-display {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  width: 100%;
+  padding: 0 1rem;
+  justify-content: center;
+}
+
+/* Cards row with bars above */
+.results-display__cards {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.results-display__card-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Bar wrapper — fixed height container for the bar */
+.results-display__bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 50px;
+  width: 48px;
+  gap: 0.25rem;
+}
+
+.results-display__vote-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.results-display__bar {
+  width: 6px;
+  background-color: var(--color-accent);
+  border-radius: 3px;
+  transition: height 0.3s ease;
+  min-height: 4px;
+}
+
+.results-display__bar--highlight {
+  background-color: var(--color-success);
+  width: 8px;
+}
+
+/* Card style — matches the CardSelectionPanel cards */
+.results-display__card {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  border: 2px solid var(--color-border);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.results-display__card--highlight {
+  border-color: var(--color-success);
+  background-color: rgba(74, 222, 128, 0.1);
+  color: var(--color-success);
+}
+
+/* Stats section — to the right of the cards */
+.results-display__stats {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.results-display__average {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.results-display__stat-label {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.results-display__stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+}
+
+.results-display__agreement {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+/* Donut chart */
+.results-display__donut {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  margin-top: 0.25rem;
+}
+
+.results-display__donut-ring {
+  fill: none;
+  stroke: var(--color-surface);
+  stroke-width: 5;
+}
+
+.results-display__donut-fill {
+  fill: none;
+  stroke: var(--color-accent);
+  stroke-width: 5;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.results-display__donut-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-text-heading);
+}
