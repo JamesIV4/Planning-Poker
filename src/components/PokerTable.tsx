@@ -125,31 +125,69 @@ export function PokerTable({
   };
 
   // Distribute players into slots around the table.
-  // Top and bottom rows take most players; left and right sides can take multiple stacked vertically.
-  // maxSideSlots is reduced when vertical space is tight.
-  const getSlots = (total: number, maxSide: number) => {
+  // In landscape: top/bottom are the long sides, left/right are short.
+  // In portrait: left/right are the long sides, top/bottom are short.
+  const getSlots = (total: number, maxSide: number, portrait: boolean) => {
     if (total <= 1) return { top: total, right: 0, bottom: 0, left: 0 };
-    if (total === 2) return { top: 1, right: 0, bottom: 1, left: 0 };
-    if (total === 3) return { top: 1, right: 1, bottom: 1, left: 0 };
+    if (total === 2) {
+      return portrait
+        ? {
+            top: 0,
+            right: 0,
+            bottom: 0,
+            left: 1,
+            leftPlayers: 1,
+            rightPlayers: 1,
+          }
+        : { top: 1, right: 0, bottom: 1, left: 0 };
+    }
+    if (total === 3) {
+      return portrait
+        ? { top: 1, right: 1, bottom: 1, left: 0 }
+        : { top: 1, right: 1, bottom: 1, left: 0 };
+    }
     if (total === 4) return { top: 1, right: 1, bottom: 1, left: 1 };
-    // 5+: sides scale with player count — 3 per side only at 20+, 2 at 10+
-    const sideByCount = total >= 20 ? 3 : total >= 10 ? 2 : 1;
-    const sideMax = Math.min(maxSide, sideByCount);
-    const leftCount = sideMax;
-    const rightCount = sideMax;
-    const remaining = total - leftCount - rightCount;
-    const topCount = Math.ceil(remaining / 2);
-    const bottomCount = Math.floor(remaining / 2);
-    return {
-      top: topCount,
-      right: rightCount,
-      bottom: bottomCount,
-      left: leftCount,
-    };
+
+    if (portrait) {
+      // Portrait: left/right are the long sides, top/bottom are short.
+      // Top/bottom can fit 2-3 cards across the narrow width — use them early.
+      const tbByCount = total >= 10 ? 3 : total >= 5 ? 2 : 1;
+      const topCount = tbByCount;
+      const bottomCount = tbByCount;
+      const remaining = total - topCount - bottomCount;
+      const leftCount = Math.ceil(remaining / 2);
+      const rightCount = Math.floor(remaining / 2);
+      return {
+        top: topCount,
+        right: rightCount,
+        bottom: bottomCount,
+        left: leftCount,
+      };
+    } else {
+      // Landscape: top/bottom are the long sides, left/right are short
+      const sideByCount = total >= 20 ? 3 : total >= 10 ? 2 : 1;
+      const sideMax = Math.min(maxSide, sideByCount);
+      const leftCount = sideMax;
+      const rightCount = sideMax;
+      const remaining = total - leftCount - rightCount;
+      const topCount = Math.ceil(remaining / 2);
+      const bottomCount = Math.floor(remaining / 2);
+      return {
+        top: topCount,
+        right: rightCount,
+        bottom: bottomCount,
+        left: leftCount,
+      };
+    }
   };
 
-  const getPlayerPosition = (index: number, total: number, maxSide: number) => {
-    const slots = getSlots(total, maxSide);
+  const getPlayerPosition = (
+    index: number,
+    total: number,
+    maxSide: number,
+    portrait: boolean,
+  ) => {
+    const slots = getSlots(total, maxSide, portrait);
 
     // Assign player to a slot region
     let region: "top" | "right" | "bottom" | "left";
@@ -180,7 +218,10 @@ export function PokerTable({
         const usableWidth = 84;
         const offset = (100 - usableWidth) / 2;
         const spacing = usableWidth / (regionCount + 1);
-        return { left: `${offset + spacing * (posInRegion + 1)}%`, top: "0%" };
+        return {
+          left: `${offset + spacing * (posInRegion + 1)}%`,
+          top: "0%",
+        };
       }
       case "bottom": {
         const usableWidth = 84;
@@ -192,15 +233,14 @@ export function PokerTable({
         };
       }
       case "left": {
-        // Spread side players across nearly the full height for maximum spacing
-        const usableHeight = 96;
-        const vOffset = (100 - usableHeight) / 2;
+        const usableHeight = 100;
+        const vOffset = 0;
         const spacing = usableHeight / (regionCount + 1);
         return { left: "5%", top: `${vOffset + spacing * (posInRegion + 1)}%` };
       }
       case "right": {
-        const usableHeight = 96;
-        const vOffset = (100 - usableHeight) / 2;
+        const usableHeight = 100;
+        const vOffset = 0;
         const spacing = usableHeight / (regionCount + 1);
         return {
           left: "95%",
@@ -213,10 +253,12 @@ export function PokerTable({
   // Scale the layout based on player count
   const playerCount = players.length;
 
-  // Detect available vertical space to decide side slot count and card scaling
+  // Detect available space to decide layout orientation and slot distribution
   const containerRef = useRef<HTMLDivElement>(null);
   const [useCompactLayout, setUseCompactLayout] = useState(false);
   const [availableHeight, setAvailableHeight] = useState(600);
+  const [availableWidth, setAvailableWidth] = useState(800);
+  const isPortrait = availableWidth < 500;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -227,16 +269,32 @@ export function PokerTable({
         const containerWidth = entry.contentRect.width;
         const containerHeight = entry.contentRect.height;
         setAvailableHeight(containerHeight);
+        setAvailableWidth(containerWidth);
 
-        // Determine max side slots based on available height
-        const currentMaxSide =
-          containerHeight < 400 ? 1 : containerHeight < 500 ? 2 : 3;
-        const currentSlots = getSlots(playerCount, currentMaxSide);
+        const portrait = containerWidth < 500;
+
+        // Determine max side slots based on available space
+        const currentMaxSide = portrait
+          ? containerHeight < 500
+            ? 2
+            : 3
+          : containerHeight < 400
+            ? 1
+            : containerHeight < 500
+              ? 2
+              : 3;
+        const currentSlots = getSlots(playerCount, currentMaxSide, portrait);
         const currentMaxRow = Math.max(currentSlots.top, currentSlots.bottom);
 
         // Switch to compact grid only as a last resort
-        const minNeededWidth = currentMaxRow * 75 + 80;
-        setUseCompactLayout(containerWidth < minNeededWidth && playerCount > 5);
+        const longSideCount = portrait
+          ? Math.max(currentSlots.left, currentSlots.right)
+          : currentMaxRow;
+        const minNeeded = portrait
+          ? longSideCount * 100 + 80 // vertical space needed
+          : currentMaxRow * 75 + 80; // horizontal space needed
+        const available = portrait ? containerHeight : containerWidth;
+        setUseCompactLayout(available < minNeeded && playerCount > 5);
       }
     });
 
@@ -244,39 +302,57 @@ export function PokerTable({
     return () => observer.disconnect();
   }, [playerCount]);
 
-  // Determine max side slots based on available height
-  const maxSideSlots =
-    availableHeight < 400 ? 1 : availableHeight < 500 ? 2 : 3;
+  // In portrait mode, allow more side slots and fewer top/bottom
+  const maxSideSlots = isPortrait
+    ? availableHeight < 500
+      ? 2
+      : 3
+    : availableHeight < 400
+      ? 1
+      : availableHeight < 500
+        ? 2
+        : 3;
 
-  const slots = getSlots(playerCount, maxSideSlots);
+  const slots = getSlots(playerCount, maxSideSlots, isPortrait);
   const maxRowCount = Math.max(slots.top, slots.bottom);
   const hasSidePlayers = slots.left > 0 || slots.right > 0;
 
-  // Width strategy: prefer wider table with generous spacing between cards.
-  const idealSpacing = 130;
-  const layoutWidth = Math.max(400, maxRowCount * idealSpacing + 140);
+  // In portrait: make the table tall and narrow. In landscape: wide and shorter.
+  let layoutWidth: number;
+  let layoutHeight: number;
 
-  // Height: ensure enough vertical space for side players.
+  if (isPortrait) {
+    // Portrait: height-dominant layout — use all available space
+    layoutWidth = Math.max(280, availableWidth - 20);
+    // Use the actual available height, minimal buffer to maximize side card spacing
+    layoutHeight = Math.max(300, availableHeight - 10);
+  } else {
+    // Landscape: width-dominant layout
+    const idealSpacing = 130;
+    layoutWidth = Math.max(400, maxRowCount * idealSpacing + 140);
+    const sideCount = Math.max(slots.left, slots.right);
+    const minHeightForSides = sideCount >= 3 ? 450 : sideCount >= 2 ? 380 : 300;
+    const maxLayoutHeight = Math.max(250, availableHeight - 120);
+    layoutHeight = Math.min(
+      maxLayoutHeight,
+      Math.max(minHeightForSides, 240 + playerCount * 12),
+    );
+  }
+
+  // Scale cards down if the layout is too tight for side players
   const sideCount = Math.max(slots.left, slots.right);
-  const minHeightForSides = sideCount >= 3 ? 450 : sideCount >= 2 ? 380 : 300;
-  // Don't exceed available height minus margins (120px for top+bottom margins)
-  const maxLayoutHeight = Math.max(250, availableHeight - 120);
-  const layoutHeight = Math.min(
-    maxLayoutHeight,
-    Math.max(minHeightForSides, 240 + playerCount * 12),
-  );
-
-  // Scale cards down if the layout height is too tight for the content
   const verticalSpacePerSideCard =
     sideCount > 0 ? layoutHeight / (sideCount + 1) : 999;
+  // Each card needs ~120px ideally (card height + name + gap).
+  // Scale down when space per card drops below that.
   const verticalScale =
-    verticalSpacePerSideCard < 110
-      ? Math.max(0.65, verticalSpacePerSideCard / 110)
+    verticalSpacePerSideCard < 120
+      ? Math.max(0.55, verticalSpacePerSideCard / 140)
       : 1;
   const cardWidth = Math.round(60 * verticalScale);
   const cardHeight = Math.round(84 * verticalScale);
-  const nameSize = `${Math.max(0.55, 0.75 * verticalScale)}rem`;
-  const valueSize = `${Math.max(0.8, 1.25 * verticalScale)}rem`;
+  const nameSize = `${Math.max(0.5, 0.75 * verticalScale)}rem`;
+  const valueSize = `${Math.max(0.7, 1.25 * verticalScale)}rem`;
 
   const layoutStyle: React.CSSProperties = {
     width: `min(${layoutWidth}px, 100%)`,
@@ -285,7 +361,12 @@ export function PokerTable({
     "--card-height": `${cardHeight}px`,
     "--player-name-size": nameSize,
     "--card-value-size": valueSize,
-    "--table-surface-width": hasSidePlayers ? "65%" : "75%",
+    "--table-surface-width": isPortrait
+      ? "55%"
+      : hasSidePlayers
+        ? "65%"
+        : "75%",
+    "--table-surface-height": isPortrait ? "65%" : "50%",
   } as React.CSSProperties;
 
   // Render a player card with all its props (shared between layouts)
@@ -383,7 +464,12 @@ export function PokerTable({
       <div className="poker-table__layout" style={layoutStyle}>
         {/* Players positioned in slots around the table */}
         {players.map((player, index) => {
-          const pos = getPlayerPosition(index, players.length, maxSideSlots);
+          const pos = getPlayerPosition(
+            index,
+            players.length,
+            maxSideSlots,
+            isPortrait,
+          );
           return (
             <div
               key={player.id}

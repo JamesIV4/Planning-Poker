@@ -20,6 +20,12 @@
   transition: width 0.3s ease;
 }
 
+@media (max-width: 500px) {
+  .poker-table__layout {
+    margin: 50px auto 50px;
+  }
+}
+
 /* Players positioned absolutely in a circle */
 .poker-table__player {
   position: absolute;
@@ -109,7 +115,7 @@
   box-shadow: var(--shadow-lg);
   z-index: 0;
   width: var(--table-surface-width, 75%);
-  height: 50%;
+  height: var(--table-surface-height, 50%);
 }
 
 /* Controls in the center of the table */
@@ -149,8 +155,8 @@
   }
 
   .poker-table__surface {
-    width: min(var(--table-surface-width, 65%), 60%) !important;
-    height: 45%;
+    width: var(--table-surface-width, 55%);
+    height: var(--table-surface-height, 50%);
     border-radius: var(--radius-lg);
   }
 
@@ -167,8 +173,8 @@
 /* Responsive: large screens — use the space */
 @media (min-width: 1400px) {
   .poker-table__surface {
-    width: 70%;
-    height: 55%;
+    width: var(--table-surface-width, 70%);
+    height: var(--table-surface-height, 55%);
   }
 }
 
