@@ -220,7 +220,7 @@ export function PokerTable({
         const spacing = usableWidth / (regionCount + 1);
         return {
           left: `${offset + spacing * (posInRegion + 1)}%`,
-          top: "0%",
+          top: "5%",
         };
       }
       case "bottom": {
@@ -229,7 +229,7 @@ export function PokerTable({
         const spacing = usableWidth / (regionCount + 1);
         return {
           left: `${offset + spacing * (posInRegion + 1)}%`,
-          top: "100%",
+          top: "95%",
         };
       }
       case "left": {
