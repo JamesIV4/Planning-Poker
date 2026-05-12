@@ -17,11 +17,6 @@
  * 3. Store as VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL
  */
 
-const isLocalDev =
-  typeof window !== "undefined" &&
-  (window.location.hostname === "localhost" ||
-    window.location.hostname === "127.0.0.1");
-
 const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME ?? "";
 const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL ?? "";
 
@@ -52,7 +47,7 @@ const turnServers: RTCIceServer[] =
     : [];
 
 export const PEER_CONFIG = {
-  debug: isLocalDev ? 2 : 1,
+  debug: 3, // Full logging while app is stabilizing
   serialization: "json" as const,
   config: {
     iceServers: [
