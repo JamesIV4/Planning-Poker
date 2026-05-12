@@ -1,64 +1,89 @@
 /**
  * Shared PeerJS configuration for both host and client.
  *
- * TURN credentials are injected at build time via environment variables:
- *   VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL
+ * TURN credentials are fetched dynamically from Metered's REST API at runtime.
+ * The API key is injected at build time via VITE_METERED_API_KEY.
  *
  * For local development, create a .env.local file:
- *   VITE_TURN_USERNAME=your-username
- *   VITE_TURN_CREDENTIAL=your-credential
- *
- * For production (GitHub Pages), these are set as repository secrets
- * and injected during the GitHub Actions build step.
- *
- * To get credentials:
- * 1. Sign up at https://www.metered.ca/stun-turn (free tier, no credit card)
- * 2. Create credentials via their REST API or dashboard
- * 3. Store as VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL
+ *   VITE_METERED_API_KEY=your-api-key
  */
 
-const TURN_USERNAME = import.meta.env.VITE_TURN_USERNAME ?? "";
-const TURN_CREDENTIAL = import.meta.env.VITE_TURN_CREDENTIAL ?? "";
+const METERED_API_KEY = import.meta.env.VITE_METERED_API_KEY ?? "";
 
-const turnServers: RTCIceServer[] =
-  TURN_USERNAME && TURN_CREDENTIAL
-    ? [
-        {
-          urls: "turn:global.relay.metered.ca:80",
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL,
-        },
-        {
-          urls: "turn:global.relay.metered.ca:80?transport=tcp",
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL,
-        },
-        {
-          urls: "turn:global.relay.metered.ca:443",
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL,
-        },
-        {
-          urls: "turns:global.relay.metered.ca:443?transport=tcp",
-          username: TURN_USERNAME,
-          credential: TURN_CREDENTIAL,
-        },
-      ]
-    : [];
+const BASE_ICE_SERVERS: RTCIceServer[] = [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun2.l.google.com:19302" },
+  { urls: "stun:stun3.l.google.com:19302" },
+  { urls: "stun:stun4.l.google.com:19302" },
+];
 
-export const PEER_CONFIG = {
-  debug: 3, // Full logging while app is stabilizing
+/**
+ * Fetch TURN server credentials from Metered's REST API.
+ * Returns the full iceServers array (STUN + TURN).
+ */
+export async function fetchIceServers(): Promise<RTCIceServer[]> {
+  if (!METERED_API_KEY) {
+    console.warn(
+      "[PeerConfig] ⚠ No VITE_METERED_API_KEY found. Cross-network connections will fail.",
+    );
+    return BASE_ICE_SERVERS;
+  }
+
+  try {
+    const response = await fetch(
+      `https://planning-poker.metered.live/api/v1/turn/credentials?apiKey=${METERED_API_KEY}`,
+      { signal: AbortSignal.timeout(5000) },
+    );
+
+    if (!response.ok) {
+      console.error(
+        "[PeerConfig] Failed to fetch TURN credentials:",
+        response.status,
+      );
+      return BASE_ICE_SERVERS;
+    }
+
+    const turnServers: RTCIceServer[] = await response.json();
+    console.log(
+      "[PeerConfig] TURN credentials fetched ✓",
+      turnServers.length,
+      "servers",
+    );
+    return [...BASE_ICE_SERVERS, ...turnServers];
+  } catch (err) {
+    console.error("[PeerConfig] Error fetching TURN credentials:", err);
+    return BASE_ICE_SERVERS;
+  }
+}
+
+// Synchronous fallback (STUN only) — used if async fetch hasn't completed
+export const PEER_CONFIG_BASE = {
+  debug: 3,
   serialization: "json" as const,
   config: {
-    iceServers: [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun2.l.google.com:19302" },
-      { urls: "stun:stun3.l.google.com:19302" },
-      { urls: "stun:stun4.l.google.com:19302" },
-      ...turnServers,
-    ],
+    iceServers: BASE_ICE_SERVERS,
     sdpSemantics: "unified-plan",
     iceCandidatePoolSize: 10,
   },
 };
+
+/**
+ * Get the full PeerJS config with TURN servers.
+ * Call this before creating a peer connection.
+ */
+export async function getPeerConfig() {
+  const iceServers = await fetchIceServers();
+  return {
+    debug: 3,
+    serialization: "json" as const,
+    config: {
+      iceServers,
+      sdpSemantics: "unified-plan",
+      iceCandidatePoolSize: 10,
+    },
+  };
+}
+
+// Legacy synchronous export (for any code that hasn't been updated to async)
+export const PEER_CONFIG = PEER_CONFIG_BASE;
