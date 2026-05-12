@@ -22,10 +22,15 @@
 
 @media (max-width: 500px) {
   .poker-table__layout {
-    margin: 50px auto 50px;
+    margin: 35px auto 35px;
   }
 }
 
+@media (max-height: 500px) {
+  .poker-table__layout {
+    margin: 40px auto 40px;
+  }
+}
 /* Players positioned absolutely in a circle */
 .poker-table__player {
   position: absolute;

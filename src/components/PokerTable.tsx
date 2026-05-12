@@ -165,7 +165,7 @@ export function PokerTable({
       };
     } else {
       // Landscape: top/bottom are the long sides, left/right are short
-      const sideByCount = total >= 20 ? 3 : total >= 10 ? 2 : 1;
+      const sideByCount = total >= 10 ? 3 : total >= 5 ? 2 : 1;
       const sideMax = Math.min(maxSide, sideByCount);
       const leftCount = sideMax;
       const rightCount = sideMax;
@@ -278,11 +278,9 @@ export function PokerTable({
           ? containerHeight < 500
             ? 2
             : 3
-          : containerHeight < 400
-            ? 1
-            : containerHeight < 500
-              ? 2
-              : 3;
+          : containerHeight < 350
+            ? 2
+            : 3;
         const currentSlots = getSlots(playerCount, currentMaxSide, portrait);
         const currentMaxRow = Math.max(currentSlots.top, currentSlots.bottom);
 
@@ -303,15 +301,14 @@ export function PokerTable({
   }, [playerCount]);
 
   // In portrait mode, allow more side slots and fewer top/bottom
+  // In landscape, cap at 2 when height is tight (mobile landscape)
   const maxSideSlots = isPortrait
     ? availableHeight < 500
       ? 2
       : 3
-    : availableHeight < 400
-      ? 1
-      : availableHeight < 500
-        ? 2
-        : 3;
+    : availableHeight < 350
+      ? 2
+      : 3;
 
   const slots = getSlots(playerCount, maxSideSlots, isPortrait);
   const maxRowCount = Math.max(slots.top, slots.bottom);
@@ -330,25 +327,27 @@ export function PokerTable({
     // Landscape: width-dominant layout
     const idealSpacing = 130;
     layoutWidth = Math.max(400, maxRowCount * idealSpacing + 140);
-    const sideCount = Math.max(slots.left, slots.right);
-    const minHeightForSides = sideCount >= 3 ? 450 : sideCount >= 2 ? 380 : 300;
-    const maxLayoutHeight = Math.max(250, availableHeight - 120);
-    layoutHeight = Math.min(
-      maxLayoutHeight,
-      Math.max(minHeightForSides, 240 + playerCount * 12),
-    );
+    // Leave room for cards extending beyond layout edges (translate -50%)
+    layoutHeight = Math.max(200, availableHeight - 80);
   }
 
-  // Scale cards down if the layout is too tight for side players
+  // Scale cards down if the layout is too tight.
+  // Check both vertical (for side cards) and overall height (for landscape with stacked rows).
   const sideCount = Math.max(slots.left, slots.right);
   const verticalSpacePerSideCard =
     sideCount > 0 ? layoutHeight / (sideCount + 1) : 999;
-  // Each card needs ~120px ideally (card height + name + gap).
-  // Scale down when space per card drops below that.
-  const verticalScale =
+
+  // In landscape, if layout height is short, scale to fit top/bottom rows + table
+  // Each row needs ~100px (card + name), two rows + table + gaps need ~350px minimum
+  const landscapeHeightScale =
+    !isPortrait && layoutHeight < 380 ? Math.max(0.35, layoutHeight / 550) : 1;
+
+  const sideScale =
     verticalSpacePerSideCard < 120
       ? Math.max(0.55, verticalSpacePerSideCard / 140)
       : 1;
+
+  const verticalScale = Math.min(sideScale, landscapeHeightScale);
   const cardWidth = Math.round(60 * verticalScale);
   const cardHeight = Math.round(84 * verticalScale);
   const nameSize = `${Math.max(0.5, 0.75 * verticalScale)}rem`;
