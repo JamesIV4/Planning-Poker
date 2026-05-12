@@ -60,7 +60,10 @@ export function ConnectionStatus({ status, onRejoin }: ConnectionStatusProps) {
           <span className="connection-status__icon">⚠</span>
           <div className="connection-status__text">
             <strong>Connection lost</strong>
-            <p>Attempting to reconnect to the session host...</p>
+            <p>
+              Attempting to reconnect. If this persists, both devices may need
+              to be on the same network.
+            </p>
           </div>
         </div>
       </div>
