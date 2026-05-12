@@ -1,6 +1,6 @@
 import Peer from "peerjs";
 import type { DataConnection } from "peerjs";
-import { PEER_CONFIG } from "./peerConfig";
+import { fetchIceServers } from "./peerConfig";
 import type {
   PlayerAction,
   SessionState,
@@ -14,7 +14,7 @@ import type {
  */
 
 export interface PeerClient {
-  connectToHost(sessionId: string): void;
+  connectToHost(sessionId: string): Promise<void>;
   sendAction(action: PlayerAction): void;
   onStateUpdate(callback: (state: SessionState) => void): void;
   onConnectionChange(callback: (connected: boolean) => void): void;
@@ -47,7 +47,7 @@ export function createPeerClient(): PeerClient {
   let currentHostPeerId: string | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function connectToHost(sessionId: string): void {
+  async function connectToHost(sessionId: string): Promise<void> {
     currentHostPeerId = `planning-poker-${sessionId}`;
     retryCount = 0;
 
@@ -56,7 +56,17 @@ export function createPeerClient(): PeerClient {
       currentHostPeerId,
     );
 
-    peer = new Peer(PEER_CONFIG);
+    // Fetch TURN credentials before creating the peer
+    const iceServers = await fetchIceServers();
+
+    peer = new Peer({
+      debug: 3,
+      config: {
+        iceServers,
+        sdpSemantics: "unified-plan",
+        iceCandidatePoolSize: 10,
+      },
+    } as any);
 
     peer.on("open", (id) => {
       console.log(

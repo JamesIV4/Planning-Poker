@@ -36,8 +36,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
-          VITE_TURN_CREDENTIAL: ${{ secrets.VITE_TURN_CREDENTIAL }}
+          VITE_METERED_API_KEY: ${{ secrets.VITE_METERED_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v5

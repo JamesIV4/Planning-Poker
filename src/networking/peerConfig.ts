@@ -1,11 +1,8 @@
 /**
  * Shared PeerJS configuration for both host and client.
  *
- * TURN credentials are fetched dynamically from Metered's REST API at runtime.
- * The API key is injected at build time via VITE_METERED_API_KEY.
- *
- * For local development, create a .env.local file:
- *   VITE_METERED_API_KEY=your-api-key
+ * Fetches TURN credentials dynamically from Metered's REST API at runtime.
+ * This ensures fresh, valid TURN relay credentials for cross-network connections.
  */
 
 const METERED_API_KEY = import.meta.env.VITE_METERED_API_KEY ?? "";
@@ -19,13 +16,13 @@ const BASE_ICE_SERVERS: RTCIceServer[] = [
 ];
 
 /**
- * Fetch TURN server credentials from Metered's REST API.
+ * Fetch TURN credentials from Metered's REST API.
  * Returns the full iceServers array (STUN + TURN).
  */
 export async function fetchIceServers(): Promise<RTCIceServer[]> {
   if (!METERED_API_KEY) {
     console.warn(
-      "[PeerConfig] ⚠ No VITE_METERED_API_KEY found. Cross-network connections will fail.",
+      "[PeerConfig] ⚠ No VITE_METERED_API_KEY set. TURN relay unavailable.",
     );
     return BASE_ICE_SERVERS;
   }
@@ -46,7 +43,7 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
 
     const turnServers: RTCIceServer[] = await response.json();
     console.log(
-      "[PeerConfig] TURN credentials fetched ✓",
+      "[PeerConfig] ✓ Fetched TURN credentials:",
       turnServers.length,
       "servers",
     );
@@ -57,7 +54,7 @@ export async function fetchIceServers(): Promise<RTCIceServer[]> {
   }
 }
 
-// Synchronous fallback (STUN only) — used if async fetch hasn't completed
+// Synchronous fallback (STUN only) for cases where async isn't possible
 export const PEER_CONFIG_BASE = {
   debug: 3,
   serialization: "json" as const,
@@ -67,23 +64,3 @@ export const PEER_CONFIG_BASE = {
     iceCandidatePoolSize: 10,
   },
 };
-
-/**
- * Get the full PeerJS config with TURN servers.
- * Call this before creating a peer connection.
- */
-export async function getPeerConfig() {
-  const iceServers = await fetchIceServers();
-  return {
-    debug: 3,
-    serialization: "json" as const,
-    config: {
-      iceServers,
-      sdpSemantics: "unified-plan",
-      iceCandidatePoolSize: 10,
-    },
-  };
-}
-
-// Legacy synchronous export (for any code that hasn't been updated to async)
-export const PEER_CONFIG = PEER_CONFIG_BASE;

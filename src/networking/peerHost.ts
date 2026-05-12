@@ -1,6 +1,6 @@
 import Peer from "peerjs";
 import type { DataConnection } from "peerjs";
-import { PEER_CONFIG } from "./peerConfig";
+import { fetchIceServers } from "./peerConfig";
 import type {
   PlayerAction,
   SessionState,
@@ -21,7 +21,7 @@ import {
  */
 
 export interface PeerHost {
-  createHost(sessionId: string): void;
+  createHost(sessionId: string): Promise<void>;
   broadcastState(state: SessionState): void;
   broadcastSessionEnded(): void;
   onPlayerAction(
@@ -53,7 +53,7 @@ export function createPeerHost(): PeerHost {
   // Track the latest state for sending to newly connected players
   let latestState: SessionState | null = null;
 
-  function createHost(sessionId: string): void {
+  async function createHost(sessionId: string): Promise<void> {
     // Destroy any existing peer to avoid conflicts on the signaling server
     if (peer) {
       console.log(
@@ -65,9 +65,19 @@ export function createPeerHost(): PeerHost {
       playerDisplayNames.clear();
     }
 
+    // Fetch TURN credentials before creating the peer
+    const iceServers = await fetchIceServers();
+
     const peerId = `planning-poker-${sessionId}`;
     console.log("[PeerHost] Creating host with peer ID:", peerId);
-    peer = new Peer(peerId, PEER_CONFIG);
+    peer = new Peer(peerId, {
+      debug: 3,
+      config: {
+        iceServers,
+        sdpSemantics: "unified-plan",
+        iceCandidatePoolSize: 10,
+      },
+    } as any);
 
     peer.on("open", (id) => {
       console.log("[PeerHost] ✓ Registered with peer ID:", id);
