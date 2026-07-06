@@ -24,6 +24,160 @@ function numericValue(card: CardValue): number | null {
   return null;
 }
 
+// --- Layout geometry constants (unscaled, in px) -------------------------
+// The table view is a 3x3 grid: an outer band of player cards (top / bottom /
+// left / right) surrounding a central table surface. A single grid `gap`
+// keeps the spacing between the table and every surrounding card identical.
+const CARD_W = 64; // player card width
+const CARD_H = 90; // player card height
+const NAME_H = 24; // name label above/below a card
+// Breathing room between the table and every surrounding card. Applied as the
+// grid gap, so it is identical on all four sides. Single tunable knob for how
+// much space frames the table — larger value = smaller table, more room.
+const GAP = 28;
+const BAND_H = CARD_H + NAME_H; // height reserved for a top/bottom card + name
+// Minimum footprint a single card needs along a table edge, so cards on the
+// same side never crowd each other. Drives how the table grows with players.
+// SLOT_W is a fixed, name-independent width for each top/bottom seat: every
+// seat is exactly this wide, so cards stay evenly spaced no matter how long a
+// player's name is. The card is 64px, so this leaves a 30px minimum gutter
+// between cards (~50% more breathing room than before).
+const SLOT_W = CARD_W + 30; // horizontal footprint per top/bottom card
+const SLOT_H = CARD_H + NAME_H + 14; // vertical footprint per side card
+// Base table size at low player counts. Landscape on desktop, portrait on
+// narrow screens. MIN_ASPECT keeps the surface from drifting toward square as
+// it grows to fit more side players.
+const BASE_W_LANDSCAPE = 360;
+const BASE_H_LANDSCAPE = 200;
+const BASE_W_PORTRAIT = 200;
+const BASE_H_PORTRAIT = 340;
+const MIN_ASPECT = 1.6; // long-side / short-side floor
+// How strongly the long sides (top/bottom on desktop) are favored over the
+// short sides when seating players. 1 = perfectly even all around; higher =
+// more players pile onto the long sides before the short sides fill. Tunable.
+const SIDE_WEIGHT = 1.5;
+// Hard cap on players per short side. Once both short sides are full, extra
+// players only ever extend the long sides, growing the table horizontally.
+const SIDE_MAX = 3;
+// When fitting the layout to the container requires scaling below this, the
+// table view is too cramped to be comfortable and we fall back to the compact
+// grid instead. Tunable.
+const COMFORT_SCALE = 0.6;
+
+interface Slots {
+  top: number;
+  right: number;
+  bottom: number;
+  left: number;
+}
+
+/**
+ * Seat players around the table one at a time, each going to the least-loaded
+ * side. Short-side placements are penalized by SIDE_WEIGHT, so the long sides
+ * (top/bottom on desktop) accrue players faster while the short sides still
+ * start filling early — e.g. a 4th player lands on a short side, giving one
+ * voter on each side, rather than packing everyone onto top/bottom.
+ *
+ * Empty sides always have zero cost, so the first four players form a balanced
+ * diamond; beyond that the weight biases growth toward the long sides. The
+ * short sides are capped at SIDE_MAX, after which every extra player extends
+ * the long sides and the table simply grows wider.
+ */
+function getSlots(total: number, portrait: boolean): Slots {
+  // Long sides are top/bottom in landscape, left/right in portrait.
+  const long = portrait
+    ? (["left", "right"] as const)
+    : (["top", "bottom"] as const);
+  const short = portrait
+    ? (["top", "bottom"] as const)
+    : (["left", "right"] as const);
+  const isShort = (side: keyof Slots) => side === short[0] || side === short[1];
+
+  const counts: Slots = { top: 0, right: 0, bottom: 0, left: 0 };
+  // Fill order for tie-breaking: long sides first, then short sides.
+  const order = [long[0], long[1], short[0], short[1]] as const;
+
+  for (let placed = 0; placed < total; placed++) {
+    let best: keyof Slots | null = null;
+    let bestCost = Infinity;
+    for (const side of order) {
+      if (isShort(side) && counts[side] >= SIDE_MAX) continue; // side is full
+      const cost = counts[side] * (isShort(side) ? SIDE_WEIGHT : 1);
+      if (cost < bestCost - 1e-9) {
+        bestCost = cost;
+        best = side;
+      }
+    }
+    // Once the short sides are capped, only the long sides remain eligible.
+    counts[best ?? order[0]]++;
+  }
+
+  return counts;
+}
+
+/** Split the ordered player list into the four bands per the slot counts. */
+function bucketPlayers(players: Player[], slots: Slots) {
+  const topEnd = slots.top;
+  const rightEnd = topEnd + slots.right;
+  const bottomEnd = rightEnd + slots.bottom;
+  return {
+    top: players.slice(0, topEnd),
+    right: players.slice(topEnd, rightEnd),
+    bottom: players.slice(rightEnd, bottomEnd),
+    left: players.slice(bottomEnd, bottomEnd + slots.left),
+  };
+}
+
+interface LayoutResult {
+  slots: Slots;
+  scale: number;
+  tableW: number; // unscaled
+  tableH: number; // unscaled
+}
+
+/**
+ * Compute the table dimensions and a fit-to-container scale.
+ * The table grows only as more players require more room along an edge, so it
+ * never shrinks when side players first appear and grows in smooth steps.
+ */
+function computeLayout(
+  count: number,
+  availW: number,
+  availH: number,
+  portrait: boolean,
+): LayoutResult {
+  const slots = getSlots(count, portrait);
+  const rowCards = Math.max(slots.top, slots.bottom); // along top/bottom
+  const sideCards = Math.max(slots.left, slots.right); // along left/right
+
+  let tableW = Math.max(
+    portrait ? BASE_W_PORTRAIT : BASE_W_LANDSCAPE,
+    rowCards * SLOT_W,
+  );
+  let tableH = Math.max(
+    portrait ? BASE_H_PORTRAIT : BASE_H_LANDSCAPE,
+    sideCards * SLOT_H,
+  );
+
+  // Keep the surface unmistakably landscape (desktop) / portrait (narrow).
+  if (portrait) {
+    tableH = Math.max(tableH, tableW * MIN_ASPECT);
+  } else {
+    tableW = Math.max(tableW, tableH * MIN_ASPECT);
+  }
+
+  const layoutW = tableW + 2 * (CARD_W + GAP);
+  const layoutH = tableH + 2 * (BAND_H + GAP);
+
+  const scale = Math.min(
+    1,
+    availW > 0 ? availW / layoutW : 1,
+    availH > 0 ? availH / layoutH : 1,
+  );
+
+  return { slots, scale, tableW, tableH };
+}
+
 export function PokerTable({
   players,
   votes,
@@ -124,141 +278,12 @@ export function PokerTable({
     return winningCards.has(card);
   };
 
-  // Distribute players into slots around the table.
-  // In landscape: top/bottom are the long sides, left/right are short.
-  // In portrait: left/right are the long sides, top/bottom are short.
-  const getSlots = (total: number, maxSide: number, portrait: boolean) => {
-    if (total <= 1) return { top: total, right: 0, bottom: 0, left: 0 };
-    if (total === 2) {
-      return portrait
-        ? {
-            top: 0,
-            right: 0,
-            bottom: 0,
-            left: 1,
-            leftPlayers: 1,
-            rightPlayers: 1,
-          }
-        : { top: 1, right: 0, bottom: 1, left: 0 };
-    }
-    if (total === 3) {
-      return portrait
-        ? { top: 1, right: 1, bottom: 1, left: 0 }
-        : { top: 1, right: 1, bottom: 1, left: 0 };
-    }
-    if (total === 4) return { top: 1, right: 1, bottom: 1, left: 1 };
-
-    if (portrait) {
-      // Portrait: left/right are the long sides, top/bottom are short.
-      // Top/bottom can fit 2-3 cards across the narrow width — use them early.
-      const tbByCount = total >= 10 ? 3 : total >= 5 ? 2 : 1;
-      const topCount = tbByCount;
-      const bottomCount = tbByCount;
-      const remaining = total - topCount - bottomCount;
-      const leftCount = Math.ceil(remaining / 2);
-      const rightCount = Math.floor(remaining / 2);
-      return {
-        top: topCount,
-        right: rightCount,
-        bottom: bottomCount,
-        left: leftCount,
-      };
-    } else {
-      // Landscape: top/bottom are the long sides, left/right are short
-      const sideByCount = total >= 10 ? 3 : total >= 5 ? 2 : 1;
-      const sideMax = Math.min(maxSide, sideByCount);
-      const leftCount = sideMax;
-      const rightCount = sideMax;
-      const remaining = total - leftCount - rightCount;
-      const topCount = Math.ceil(remaining / 2);
-      const bottomCount = Math.floor(remaining / 2);
-      return {
-        top: topCount,
-        right: rightCount,
-        bottom: bottomCount,
-        left: leftCount,
-      };
-    }
-  };
-
-  const getPlayerPosition = (
-    index: number,
-    total: number,
-    maxSide: number,
-    portrait: boolean,
-  ) => {
-    const slots = getSlots(total, maxSide, portrait);
-
-    // Assign player to a slot region
-    let region: "top" | "right" | "bottom" | "left";
-    let posInRegion: number;
-    let regionCount: number;
-
-    if (index < slots.top) {
-      region = "top";
-      posInRegion = index;
-      regionCount = slots.top;
-    } else if (index < slots.top + slots.right) {
-      region = "right";
-      posInRegion = index - slots.top;
-      regionCount = slots.right;
-    } else if (index < slots.top + slots.right + slots.bottom) {
-      region = "bottom";
-      posInRegion = index - slots.top - slots.right;
-      regionCount = slots.bottom;
-    } else {
-      region = "left";
-      posInRegion = index - slots.top - slots.right - slots.bottom;
-      regionCount = slots.left;
-    }
-
-    // Calculate position based on region
-    switch (region) {
-      case "top": {
-        const usableWidth = 84;
-        const offset = (100 - usableWidth) / 2;
-        const spacing = usableWidth / (regionCount + 1);
-        return {
-          left: `${offset + spacing * (posInRegion + 1)}%`,
-          top: "5%",
-        };
-      }
-      case "bottom": {
-        const usableWidth = 84;
-        const offset = (100 - usableWidth) / 2;
-        const spacing = usableWidth / (regionCount + 1);
-        return {
-          left: `${offset + spacing * (posInRegion + 1)}%`,
-          top: "95%",
-        };
-      }
-      case "left": {
-        const usableHeight = 100;
-        const vOffset = 0;
-        const spacing = usableHeight / (regionCount + 1);
-        return { left: "5%", top: `${vOffset + spacing * (posInRegion + 1)}%` };
-      }
-      case "right": {
-        const usableHeight = 100;
-        const vOffset = 0;
-        const spacing = usableHeight / (regionCount + 1);
-        return {
-          left: "95%",
-          top: `${vOffset + spacing * (posInRegion + 1)}%`,
-        };
-      }
-    }
-  };
-
-  // Scale the layout based on player count
   const playerCount = players.length;
 
-  // Detect available space to decide layout orientation and slot distribution
+  // Measure the available space so the layout can fit itself to the container.
   const containerRef = useRef<HTMLDivElement>(null);
-  const [useCompactLayout, setUseCompactLayout] = useState(false);
   const [availableHeight, setAvailableHeight] = useState(600);
-  const [availableWidth, setAvailableWidth] = useState(800);
-  const isPortrait = availableWidth < 500;
+  const [availableWidth, setAvailableWidth] = useState(1000);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -266,110 +291,113 @@ export function PokerTable({
 
     const observer = new ResizeObserver((entries) => {
       for (const entry of entries) {
-        const containerWidth = entry.contentRect.width;
-        const containerHeight = entry.contentRect.height;
-        setAvailableHeight(containerHeight);
-        setAvailableWidth(containerWidth);
-
-        const portrait = containerWidth < 500;
-
-        // Determine max side slots based on available space
-        const currentMaxSide = portrait
-          ? containerHeight < 500
-            ? 2
-            : 3
-          : containerHeight < 350
-            ? 2
-            : 3;
-        const currentSlots = getSlots(playerCount, currentMaxSide, portrait);
-        const currentMaxRow = Math.max(currentSlots.top, currentSlots.bottom);
-
-        // Switch to compact grid only as a last resort
-        const longSideCount = portrait
-          ? Math.max(currentSlots.left, currentSlots.right)
-          : currentMaxRow;
-        const minNeeded = portrait
-          ? longSideCount * 100 + 80 // vertical space needed
-          : currentMaxRow * 75 + 80; // horizontal space needed
-        const available = portrait ? containerHeight : containerWidth;
-        setUseCompactLayout(available < minNeeded && playerCount > 5);
+        setAvailableWidth(entry.contentRect.width);
+        setAvailableHeight(entry.contentRect.height);
       }
     });
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, [playerCount]);
+  }, []);
 
-  // In portrait mode, allow more side slots and fewer top/bottom
-  // In landscape, cap at 2 when height is tight (mobile landscape)
-  const maxSideSlots = isPortrait
-    ? availableHeight < 500
-      ? 2
-      : 3
-    : availableHeight < 350
-      ? 2
-      : 3;
+  const isPortrait = availableWidth > 0 && availableWidth < 500;
 
-  const slots = getSlots(playerCount, maxSideSlots, isPortrait);
-  const maxRowCount = Math.max(slots.top, slots.bottom);
-  const hasSidePlayers = slots.left > 0 || slots.right > 0;
+  // Small inset so the layout never touches the container edges.
+  const { slots, scale, tableW, tableH } = computeLayout(
+    playerCount,
+    availableWidth - 16,
+    availableHeight - 16,
+    isPortrait,
+  );
 
-  // In portrait: make the table tall and narrow. In landscape: wide and shorter.
-  let layoutWidth: number;
-  let layoutHeight: number;
+  // Expanding the table horizontally keeps things comfortable up to a point.
+  // Once fitting to the container forces the cards below a comfortable size,
+  // fall back to the plain grid instead.
+  const useCompactLayout = playerCount > 4 && scale < COMFORT_SCALE;
 
-  if (isPortrait) {
-    // Portrait: height-dominant layout — use all available space
-    layoutWidth = Math.max(280, availableWidth - 20);
-    // Use the actual available height, minimal buffer to maximize side card spacing
-    layoutHeight = Math.max(300, availableHeight - 10);
-  } else {
-    // Landscape: width-dominant layout
-    const idealSpacing = 130;
-    layoutWidth = Math.max(400, maxRowCount * idealSpacing + 140);
-    // Leave room for cards extending beyond layout edges (translate -50%)
-    layoutHeight = Math.max(200, availableHeight - 80);
-  }
-
-  // Scale cards down if the layout is too tight.
-  // Check both vertical (for side cards) and overall height (for landscape with stacked rows).
-  const sideCount = Math.max(slots.left, slots.right);
-  const verticalSpacePerSideCard =
-    sideCount > 0 ? layoutHeight / (sideCount + 1) : 999;
-
-  // In landscape, if layout height is short, scale to fit top/bottom rows + table
-  // Each row needs ~100px (card + name), two rows + table + gaps need ~350px minimum
-  const landscapeHeightScale =
-    !isPortrait && layoutHeight < 380 ? Math.max(0.35, layoutHeight / 550) : 1;
-
-  const sideScale =
-    verticalSpacePerSideCard < 120
-      ? Math.max(0.55, verticalSpacePerSideCard / 140)
-      : 1;
-
-  const verticalScale = Math.min(sideScale, landscapeHeightScale);
-  const cardWidth = Math.round(60 * verticalScale);
-  const cardHeight = Math.round(84 * verticalScale);
-  const nameSize = `${Math.max(0.5, 0.75 * verticalScale)}rem`;
-  const valueSize = `${Math.max(0.7, 1.25 * verticalScale)}rem`;
+  // Scaled pixel values fed to the grid via CSS custom properties.
+  const s = scale;
+  const cardW = Math.round(CARD_W * s);
+  const cardH = Math.round(CARD_H * s);
+  const bandH = Math.round(BAND_H * s);
+  const gap = Math.max(6, Math.round(GAP * s));
+  const nameSize = `${Math.max(0.55, 0.75 * s)}rem`;
+  const valueSize = `${Math.max(0.7, 1.25 * s)}rem`;
 
   const layoutStyle: React.CSSProperties = {
-    width: `min(${layoutWidth}px, 100%)`,
-    height: `${layoutHeight}px`,
-    "--card-width": `${cardWidth}px`,
-    "--card-height": `${cardHeight}px`,
+    "--side-w": `${cardW}px`,
+    "--band-h": `${bandH}px`,
+    "--slot-w": `${Math.round(SLOT_W * s)}px`,
+    "--table-gap": `${gap}px`,
+    "--table-w": `${Math.round(tableW * s)}px`,
+    "--table-h": `${Math.round(tableH * s)}px`,
+    "--card-width": `${cardW}px`,
+    "--card-height": `${cardH}px`,
     "--player-name-size": nameSize,
     "--card-value-size": valueSize,
-    "--table-surface-width": isPortrait
-      ? "55%"
-      : hasSidePlayers
-        ? "65%"
-        : "75%",
-    "--table-surface-height": isPortrait ? "65%" : "50%",
   } as React.CSSProperties;
 
-  // Render a player card with all its props (shared between layouts)
-  const renderPlayer = (player: Player) => (
+  // Render one player: name/badges plus the card. Band CSS controls whether the
+  // name sits above (top/left/right) or below (bottom) so the card always abuts
+  // the table with the uniform gap.
+  const renderSlotPlayer = (player: Player) => (
+    <div key={player.id} className="poker-table__player">
+      <div className="poker-table__player-info">
+        <span className="poker-table__player-name">{player.displayName}</span>
+        {player.isAdmin && (
+          <span className="poker-table__admin-badge" aria-label="Admin">
+            ★
+          </span>
+        )}
+        {isEditingParticipants && !player.isAdmin && (
+          <button
+            className="poker-table__kick-btn"
+            onClick={() => onKickPlayer(player.id)}
+            title="Remove player"
+            aria-label={`Remove ${player.displayName}`}
+          >
+            ✕
+          </button>
+        )}
+        {gameState === "revealed" && player.id === currentPlayerId && (
+          <button
+            className={`poker-table__edit-btn${isEditing ? " poker-table__edit-btn--active" : ""}`}
+            onClick={onEditVote}
+            title={isEditing ? "Cancel editing" : "Edit vote"}
+            aria-label={isEditing ? "Cancel editing" : "Edit vote"}
+            aria-pressed={isEditing}
+          >
+            {isEditing ? "✓" : "✏️"}
+          </button>
+        )}
+      </div>
+      <PlayerCard
+        gameState={gameState}
+        hasVoted={hasVoted(player.id)}
+        voteValue={getVoteValue(player.id)}
+        wasChanged={votesChanged.has(player.id)}
+        playerName={player.displayName}
+        isWinner={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isWinnerCard(getVoteValue(player.id)!)
+            : false
+        }
+        isSpecial={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isSpecialCard(getVoteValue(player.id)!)
+            : false
+        }
+        distanceRatio={
+          gameState === "revealed" && hasVoted(player.id)
+            ? getDistanceRatio(getVoteValue(player.id)!)
+            : 0
+        }
+      />
+    </div>
+  );
+
+  // Render a player for the compact grid fallback (name below the card).
+  const renderGridPlayer = (player: Player) => (
     <div key={player.id} className="poker-table__grid-player">
       <PlayerCard
         gameState={gameState}
@@ -397,7 +425,48 @@ export function PokerTable({
     </div>
   );
 
-  // Compact grid layout for narrow screens
+  // Center-table controls, shared between the surface and compact layouts.
+  const renderControls = () => (
+    <>
+      {isAdmin && gameState === "waiting" && (
+        <button
+          className="poker-table__action-btn"
+          onClick={onStartNewVoting}
+          aria-label="Start Voting"
+        >
+          Start Voting
+        </button>
+      )}
+      {isAdmin && gameState === "voting" && (
+        <button
+          className="poker-table__action-btn"
+          onClick={onRevealCards}
+          aria-label="Reveal Cards"
+        >
+          Reveal Cards
+        </button>
+      )}
+      {isAdmin && gameState === "revealed" && (
+        <button
+          className="poker-table__action-btn"
+          onClick={onStartNewVoting}
+          aria-label="Start New Voting"
+        >
+          Start New Voting
+        </button>
+      )}
+      {!isAdmin && gameState === "waiting" && (
+        <div className="poker-table__status">
+          Waiting for voting to begin...
+        </div>
+      )}
+      {!isAdmin && gameState === "voting" && (
+        <div className="poker-table__status">Pick your estimate</div>
+      )}
+    </>
+  );
+
+  // Compact grid layout for narrow screens or very large groups.
   if (useCompactLayout) {
     return (
       <div
@@ -406,52 +475,24 @@ export function PokerTable({
         aria-label="Poker table"
         ref={containerRef}
       >
-        <div className="poker-table__compact-controls">
-          {isAdmin && gameState === "waiting" && (
-            <button
-              className="poker-table__action-btn"
-              onClick={onStartNewVoting}
-            >
-              Start Voting
-            </button>
-          )}
-          {isAdmin && gameState === "voting" && (
-            <button className="poker-table__action-btn" onClick={onRevealCards}>
-              Reveal Cards
-            </button>
-          )}
-          {isAdmin && gameState === "revealed" && (
-            <button
-              className="poker-table__action-btn"
-              onClick={onStartNewVoting}
-            >
-              Start New Voting
-            </button>
-          )}
-          {!isAdmin && gameState === "waiting" && (
-            <div className="poker-table__status">
-              Waiting for voting to begin...
-            </div>
-          )}
-          {!isAdmin && gameState === "voting" && (
-            <div className="poker-table__status">Pick your estimate</div>
-          )}
-        </div>
+        <div className="poker-table__compact-controls">{renderControls()}</div>
         <div
           className="poker-table__grid"
           style={
             {
-              "--card-width": `${cardWidth}px`,
-              "--card-height": `${cardHeight}px`,
+              "--card-width": `${cardW}px`,
+              "--card-height": `${cardH}px`,
               "--card-value-size": valueSize,
             } as React.CSSProperties
           }
         >
-          {players.map(renderPlayer)}
+          {players.map(renderGridPlayer)}
         </div>
       </div>
     );
   }
+
+  const buckets = bucketPlayers(players, slots);
 
   return (
     <div
@@ -461,118 +502,22 @@ export function PokerTable({
       ref={containerRef}
     >
       <div className="poker-table__layout" style={layoutStyle}>
-        {/* Players positioned in slots around the table */}
-        {players.map((player, index) => {
-          const pos = getPlayerPosition(
-            index,
-            players.length,
-            maxSideSlots,
-            isPortrait,
-          );
-          return (
-            <div
-              key={player.id}
-              className="poker-table__player"
-              style={{ left: pos.left, top: pos.top }}
-            >
-              <div className="poker-table__player-info">
-                <span className="poker-table__player-name">
-                  {player.displayName}
-                </span>
-                {player.isAdmin && (
-                  <span className="poker-table__admin-badge" aria-label="Admin">
-                    ★
-                  </span>
-                )}
-                {isEditingParticipants && !player.isAdmin && (
-                  <button
-                    className="poker-table__kick-btn"
-                    onClick={() => onKickPlayer(player.id)}
-                    title="Remove player"
-                    aria-label={`Remove ${player.displayName}`}
-                  >
-                    ✕
-                  </button>
-                )}
-                {gameState === "revealed" && player.id === currentPlayerId && (
-                  <button
-                    className={`poker-table__edit-btn${isEditing ? " poker-table__edit-btn--active" : ""}`}
-                    onClick={onEditVote}
-                    title={isEditing ? "Cancel editing" : "Edit vote"}
-                    aria-label={isEditing ? "Cancel editing" : "Edit vote"}
-                    aria-pressed={isEditing}
-                  >
-                    {isEditing ? "✓" : "✏️"}
-                  </button>
-                )}
-              </div>
-              <PlayerCard
-                gameState={gameState}
-                hasVoted={hasVoted(player.id)}
-                voteValue={getVoteValue(player.id)}
-                wasChanged={votesChanged.has(player.id)}
-                playerName={player.displayName}
-                isWinner={
-                  gameState === "revealed" && hasVoted(player.id)
-                    ? isWinnerCard(getVoteValue(player.id)!)
-                    : false
-                }
-                isSpecial={
-                  gameState === "revealed" && hasVoted(player.id)
-                    ? isSpecialCard(getVoteValue(player.id)!)
-                    : false
-                }
-                distanceRatio={
-                  gameState === "revealed" && hasVoted(player.id)
-                    ? getDistanceRatio(getVoteValue(player.id)!)
-                    : 0
-                }
-              />
-            </div>
-          );
-        })}
+        <div className="poker-table__band poker-table__band--top">
+          {buckets.top.map(renderSlotPlayer)}
+        </div>
+        <div className="poker-table__band poker-table__band--left">
+          {buckets.left.map(renderSlotPlayer)}
+        </div>
 
-        {/* Table surface with controls in the center */}
         <div className="poker-table__surface">
-          {isAdmin && (
-            <div className="poker-table__controls">
-              {gameState === "waiting" && (
-                <button
-                  className="poker-table__action-btn"
-                  onClick={onStartNewVoting}
-                  aria-label="Start Voting"
-                >
-                  Start Voting
-                </button>
-              )}
-              {gameState === "voting" && (
-                <button
-                  className="poker-table__action-btn"
-                  onClick={onRevealCards}
-                  aria-label="Reveal Cards"
-                >
-                  Reveal Cards
-                </button>
-              )}
-              {gameState === "revealed" && (
-                <button
-                  className="poker-table__action-btn"
-                  onClick={onStartNewVoting}
-                  aria-label="Start New Voting"
-                >
-                  Start New Voting
-                </button>
-              )}
-            </div>
-          )}
-          {!isAdmin && gameState === "waiting" && (
-            <div className="poker-table__status">
-              Waiting for voting to begin...
-            </div>
-          )}
-          {!isAdmin && gameState === "voting" && (
-            <div className="poker-table__status">Pick your estimate</div>
-          )}
+          <div className="poker-table__controls">{renderControls()}</div>
+        </div>
+
+        <div className="poker-table__band poker-table__band--right">
+          {buckets.right.map(renderSlotPlayer)}
+        </div>
+        <div className="poker-table__band poker-table__band--bottom">
+          {buckets.bottom.map(renderSlotPlayer)}
         </div>
       </div>
     </div>

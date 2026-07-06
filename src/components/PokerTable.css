@@ -13,45 +13,111 @@
   padding: 0 0.5rem;
 }
 
-/* Layout wrapper: relative container for absolute player positioning */
+/*
+ * Layout: a 3x3 grid with a central table surface framed by four player
+ * bands. A single grid `gap` guarantees the spacing between the table and
+ * every surrounding card is identical on all four sides. The side columns and
+ * top/bottom rows are always reserved (fixed track sizes), so the table never
+ * shrinks or jumps when side players first appear — it only grows as more
+ * players require more room along an edge.
+ */
 .poker-table__layout {
-  position: relative;
-  margin: 60px auto 60px;
-  transition: width 0.3s ease;
+  display: grid;
+  grid-template-columns: var(--side-w, 64px) auto var(--side-w, 64px);
+  grid-template-rows: var(--band-h, 114px) auto var(--band-h, 114px);
+  grid-template-areas:
+    ".    top    ."
+    "left table  right"
+    ".    bottom .";
+  gap: var(--table-gap, 4px);
+  margin: 0 auto;
+  place-items: center;
 }
 
-@media (max-width: 500px) {
-  .poker-table__layout {
-    margin: 55px auto 55px;
-  }
+.poker-table__band {
+  display: flex;
+  z-index: 1;
 }
 
-@media (max-height: 500px) {
-  .poker-table__layout {
-    margin: 40px auto 40px;
-  }
+.poker-table__band--top {
+  grid-area: top;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-around;
+  align-self: stretch;
+  justify-self: stretch;
 }
-/* Players positioned absolutely in a circle */
+
+.poker-table__band--bottom {
+  grid-area: bottom;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-around;
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.poker-table__band--left {
+  grid-area: left;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: space-around;
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+.poker-table__band--right {
+  grid-area: right;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-around;
+  align-self: stretch;
+  justify-self: stretch;
+}
+
+/* Individual player: name/badges stacked with the card. */
 .poker-table__player {
-  position: absolute;
-  transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.25rem;
-  z-index: 1;
+  gap: 0.2rem;
+}
+
+/* Top/bottom seats have a fixed, name-independent width so cards stay evenly
+ * spaced regardless of how long each player's name is. */
+.poker-table__band--top .poker-table__player,
+.poker-table__band--bottom .poker-table__player {
+  width: var(--slot-w, 94px);
+}
+
+/* Bottom band: card sits nearest the table, name below it. */
+.poker-table__band--bottom .poker-table__player {
+  flex-direction: column-reverse;
+}
+
+/* Side bands: align the card (and its name) to the table-facing edge so the
+ * card graphic always abuts the table with the uniform gap, even when a name
+ * is wider than the card. */
+.poker-table__band--left .poker-table__player {
+  align-items: flex-end;
+}
+
+.poker-table__band--right .poker-table__player {
+  align-items: flex-start;
 }
 
 .poker-table__player-info {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.25rem;
+  max-width: var(--slot-w, 94px);
 }
 
 .poker-table__player-name {
   font-size: var(--player-name-size, 0.75rem);
   color: var(--color-text);
-  max-width: 70px;
+  max-width: var(--slot-w, 94px);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -105,22 +171,23 @@
   background-color: var(--color-accent-muted);
 }
 
-/* The table surface — centered in the layout */
+/* The table surface — the center grid cell. Its explicit, transitioned size
+ * lets it grow smoothly as the player count increases. */
 .poker-table__surface {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  grid-area: table;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: var(--table-w, 400px);
+  height: var(--table-h, 220px);
   background-color: var(--color-bg-elevated);
   border: 2px solid var(--color-border);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   z-index: 0;
-  width: var(--table-surface-width, 75%);
-  height: var(--table-surface-height, 50%);
+  transition:
+    width 0.35s ease,
+    height 0.35s ease;
 }
 
 /* Controls in the center of the table */
@@ -150,18 +217,17 @@
   color: var(--color-text-muted);
   font-size: 0.8125rem;
   text-align: center;
+  padding: 0 0.5rem;
 }
 
 /* Responsive: small screens */
 @media (max-width: 600px) {
   .poker-table__player-name {
-    max-width: 50px;
+    max-width: 60px;
     font-size: 0.625rem;
   }
 
   .poker-table__surface {
-    width: var(--table-surface-width, 55%);
-    height: var(--table-surface-height, 50%);
     border-radius: var(--radius-lg);
   }
 
@@ -175,15 +241,7 @@
   }
 }
 
-/* Responsive: large screens — use the space */
-@media (min-width: 1400px) {
-  .poker-table__surface {
-    width: var(--table-surface-width, 70%);
-    height: var(--table-surface-height, 55%);
-  }
-}
-
-/* Compact grid layout — fallback when screen is too narrow for table layout */
+/* Compact grid layout — fallback when the table view can't fit usefully */
 .poker-table--compact {
   justify-content: flex-start;
   overflow-y: auto;
