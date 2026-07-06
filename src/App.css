@@ -401,6 +401,8 @@
 
   .session-header__actions {
     gap: 0.25rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .session-header__copy-btn,
