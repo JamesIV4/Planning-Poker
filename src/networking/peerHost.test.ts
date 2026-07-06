@@ -14,6 +14,11 @@ vi.mock("peerjs", () => {
   return { default: MockPeer };
 });
 
+// Mock peerConfig so fetchIceServers resolves synchronously in tests
+vi.mock("./peerConfig", () => ({
+  fetchIceServers: vi.fn().mockResolvedValue([]),
+}));
+
 // Helper to create a mock DataConnection
 function createMockConnection(peerId: string) {
   const handlers: Record<string, (...args: unknown[]) => void> = {};
@@ -55,17 +60,17 @@ describe("createPeerHost", () => {
     vi.clearAllMocks();
   });
 
-  it("should create a host and register with correct peer ID", () => {
+  it("should create a host and register with correct peer ID", async () => {
     const host = createPeerHost();
-    host.createHost("abc123");
+    await host.createHost("abc123");
 
     // Verify that the peer was created (connection handler registered)
     expect(mockPeerOn).toHaveBeenCalledWith("connection", expect.any(Function));
   });
 
-  it("should broadcast state to all connected players", () => {
+  it("should broadcast state to all connected players", async () => {
     const host = createPeerHost();
-    host.createHost("session1");
+    await host.createHost("session1");
 
     // Simulate a connection
     const connectionHandler = mockPeerOn.mock.calls.find(
@@ -91,11 +96,11 @@ describe("createPeerHost", () => {
     });
   });
 
-  it("should call onPlayerAction callback with valid actions", () => {
+  it("should call onPlayerAction callback with valid actions", async () => {
     const host = createPeerHost();
     const actionCallback = vi.fn();
     host.onPlayerAction(actionCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -116,11 +121,11 @@ describe("createPeerHost", () => {
     });
   });
 
-  it("should reject invalid player actions", () => {
+  it("should reject invalid player actions", async () => {
     const host = createPeerHost();
     const actionCallback = vi.fn();
     host.onPlayerAction(actionCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -138,11 +143,11 @@ describe("createPeerHost", () => {
     expect(actionCallback).not.toHaveBeenCalled();
   });
 
-  it("should handle duplicate display names as reconnection (case-insensitive)", () => {
+  it("should handle duplicate display names as reconnection (case-insensitive)", async () => {
     const host = createPeerHost();
     const actionCallback = vi.fn();
     host.onPlayerAction(actionCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -179,11 +184,11 @@ describe("createPeerHost", () => {
     expect(mockConn1.close).toHaveBeenCalled();
   });
 
-  it("should call onPlayerConnected callback on join", () => {
+  it("should call onPlayerConnected callback on join", async () => {
     const host = createPeerHost();
     const connectedCallback = vi.fn();
     host.onPlayerConnected(connectedCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -199,11 +204,11 @@ describe("createPeerHost", () => {
     expect(connectedCallback).toHaveBeenCalledWith("player-1");
   });
 
-  it("should call onPlayerDisconnected callback on close", () => {
+  it("should call onPlayerDisconnected callback on close", async () => {
     const host = createPeerHost();
     const disconnectedCallback = vi.fn();
     host.onPlayerDisconnected(disconnectedCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -224,9 +229,9 @@ describe("createPeerHost", () => {
     expect(disconnectedCallback).toHaveBeenCalledWith("player-1");
   });
 
-  it("should send full state to newly connected players", () => {
+  it("should send full state to newly connected players", async () => {
     const host = createPeerHost();
-    host.createHost("session1");
+    await host.createHost("session1");
 
     // Set the latest state by broadcasting
     const state = createMockSessionState();
@@ -252,9 +257,9 @@ describe("createPeerHost", () => {
     });
   });
 
-  it("should kick a player by sending kick message and closing connection", () => {
+  it("should kick a player by sending kick message and closing connection", async () => {
     const host = createPeerHost();
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -276,9 +281,9 @@ describe("createPeerHost", () => {
     expect(mockConn.close).toHaveBeenCalled();
   });
 
-  it("should clean up all connections on destroy", () => {
+  it("should clean up all connections on destroy", async () => {
     const host = createPeerHost();
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -297,11 +302,11 @@ describe("createPeerHost", () => {
     expect(mockPeerDestroy).toHaveBeenCalled();
   });
 
-  it("should not route actions from unregistered connections", () => {
+  it("should not route actions from unregistered connections", async () => {
     const host = createPeerHost();
     const actionCallback = vi.fn();
     host.onPlayerAction(actionCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",
@@ -320,11 +325,11 @@ describe("createPeerHost", () => {
     expect(actionCallback).not.toHaveBeenCalled();
   });
 
-  it("should sanitize display names on join", () => {
+  it("should sanitize display names on join", async () => {
     const host = createPeerHost();
     const actionCallback = vi.fn();
     host.onPlayerAction(actionCallback);
-    host.createHost("session1");
+    await host.createHost("session1");
 
     const connectionHandler = mockPeerOn.mock.calls.find(
       (call) => call[0] === "connection",

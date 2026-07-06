@@ -16,6 +16,11 @@ vi.mock("peerjs", () => {
   return { default: MockPeer };
 });
 
+// Mock peerConfig so fetchIceServers resolves synchronously in tests
+vi.mock("./peerConfig", () => ({
+  fetchIceServers: vi.fn().mockResolvedValue([]),
+}));
+
 // Helper to create a mock DataConnection
 function createMockConnection() {
   const handlers: Record<string, (...args: unknown[]) => void> = {};
@@ -55,12 +60,12 @@ function createMockSessionState(): SessionState {
 }
 
 // Helper to simulate the full connection flow
-function setupConnectedClient() {
+async function setupConnectedClient() {
   const mockConn = createMockConnection();
   mockPeerConnect.mockReturnValue(mockConn);
 
   const client = createPeerClient();
-  client.connectToHost("abc123");
+  await client.connectToHost("abc123");
 
   // Trigger the peer "open" event to initiate connection
   const peerOpenHandler = mockPeerOn.mock.calls.find(
@@ -78,12 +83,12 @@ describe("createPeerClient", () => {
   });
 
   describe("connectToHost", () => {
-    it("should connect to the correct host peer ID", () => {
+    it("should connect to the correct host peer ID", async () => {
       const mockConn = createMockConnection();
       mockPeerConnect.mockReturnValue(mockConn);
 
       const client = createPeerClient();
-      client.connectToHost("abc123");
+      await client.connectToHost("abc123");
 
       // Trigger peer open event
       const peerOpenHandler = mockPeerOn.mock.calls.find(
@@ -96,14 +101,14 @@ describe("createPeerClient", () => {
       });
     });
 
-    it("should notify connection change on successful connection", () => {
+    it("should notify connection change on successful connection", async () => {
       const connectionCallback = vi.fn();
       const mockConn = createMockConnection();
       mockPeerConnect.mockReturnValue(mockConn);
 
       const client = createPeerClient();
       client.onConnectionChange(connectionCallback);
-      client.connectToHost("session1");
+      await client.connectToHost("session1");
 
       // Trigger peer open
       const peerOpenHandler = mockPeerOn.mock.calls.find(
@@ -117,10 +122,10 @@ describe("createPeerClient", () => {
       expect(connectionCallback).toHaveBeenCalledWith(true);
     });
 
-    it("should notify connection change on connection close", () => {
+    it("should notify connection change on connection close", async () => {
       const connectionCallback = vi.fn();
 
-      const { mockConn, client } = setupConnectedClient();
+      const { mockConn, client } = await setupConnectedClient();
       client.onConnectionChange(connectionCallback);
 
       // Trigger connection open first
@@ -132,10 +137,10 @@ describe("createPeerClient", () => {
       expect(connectionCallback).toHaveBeenCalledWith(false);
     });
 
-    it("should notify connection change on connection error", () => {
+    it("should notify connection change on connection error", async () => {
       const connectionCallback = vi.fn();
 
-      const { mockConn, client } = setupConnectedClient();
+      const { mockConn, client } = await setupConnectedClient();
       client.onConnectionChange(connectionCallback);
 
       mockConn._trigger("error", new Error("Connection failed"));
@@ -143,14 +148,14 @@ describe("createPeerClient", () => {
       expect(connectionCallback).toHaveBeenCalledWith(false);
     });
 
-    it("should notify connection change on peer error", () => {
+    it("should notify connection change on peer error", async () => {
       const connectionCallback = vi.fn();
       const mockConn = createMockConnection();
       mockPeerConnect.mockReturnValue(mockConn);
 
       const client = createPeerClient();
       client.onConnectionChange(connectionCallback);
-      client.connectToHost("session1");
+      await client.connectToHost("session1");
 
       // Trigger peer error
       const peerErrorHandler = mockPeerOn.mock.calls.find(
@@ -161,14 +166,14 @@ describe("createPeerClient", () => {
       expect(connectionCallback).toHaveBeenCalledWith(false);
     });
 
-    it("should notify connection change on peer disconnected", () => {
+    it("should notify connection change on peer disconnected", async () => {
       const connectionCallback = vi.fn();
       const mockConn = createMockConnection();
       mockPeerConnect.mockReturnValue(mockConn);
 
       const client = createPeerClient();
       client.onConnectionChange(connectionCallback);
-      client.connectToHost("session1");
+      await client.connectToHost("session1");
 
       // Trigger peer disconnected
       const peerDisconnectedHandler = mockPeerOn.mock.calls.find(
@@ -181,8 +186,8 @@ describe("createPeerClient", () => {
   });
 
   describe("sendAction", () => {
-    it("should send action message to host in correct format", () => {
-      const { client, mockConn } = setupConnectedClient();
+    it("should send action message to host in correct format", async () => {
+      const { client, mockConn } = await setupConnectedClient();
       mockConn._trigger("open");
 
       client.sendAction({ type: "join", displayName: "Alice" });
@@ -193,8 +198,8 @@ describe("createPeerClient", () => {
       });
     });
 
-    it("should send vote action to host", () => {
-      const { client, mockConn } = setupConnectedClient();
+    it("should send vote action to host", async () => {
+      const { client, mockConn } = await setupConnectedClient();
       mockConn._trigger("open");
 
       client.sendAction({ type: "vote", card: 8 });
@@ -205,8 +210,8 @@ describe("createPeerClient", () => {
       });
     });
 
-    it("should send removeVote action to host", () => {
-      const { client, mockConn } = setupConnectedClient();
+    it("should send removeVote action to host", async () => {
+      const { client, mockConn } = await setupConnectedClient();
       mockConn._trigger("open");
 
       client.sendAction({ type: "removeVote" });
@@ -217,13 +222,13 @@ describe("createPeerClient", () => {
       });
     });
 
-    it("should not send action when not connected", () => {
+    it("should not send action when not connected", async () => {
       const mockConn = createMockConnection();
       mockConn.open = false;
       mockPeerConnect.mockReturnValue(mockConn);
 
       const client = createPeerClient();
-      client.connectToHost("session1");
+      await client.connectToHost("session1");
 
       // Trigger peer open
       const peerOpenHandler = mockPeerOn.mock.calls.find(
@@ -238,10 +243,10 @@ describe("createPeerClient", () => {
   });
 
   describe("onStateUpdate", () => {
-    it("should call state update callback when state message is received", () => {
+    it("should call state update callback when state message is received", async () => {
       const stateCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
 
       const state = createMockSessionState();
@@ -250,10 +255,10 @@ describe("createPeerClient", () => {
       expect(stateCallback).toHaveBeenCalledWith(state);
     });
 
-    it("should not call state update callback for non-state messages", () => {
+    it("should not call state update callback for non-state messages", async () => {
       const stateCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
 
       mockConn._trigger("data", { type: "kicked" });
@@ -261,10 +266,10 @@ describe("createPeerClient", () => {
       expect(stateCallback).not.toHaveBeenCalled();
     });
 
-    it("should handle state messages with full session data", () => {
+    it("should handle state messages with full session data", async () => {
       const stateCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
 
       const state: SessionState = {
@@ -303,10 +308,10 @@ describe("createPeerClient", () => {
   });
 
   describe("onKicked", () => {
-    it("should call kicked callback when kick message is received", () => {
+    it("should call kicked callback when kick message is received", async () => {
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onKicked(kickedCallback);
 
       mockConn._trigger("data", { type: "kicked" });
@@ -314,10 +319,10 @@ describe("createPeerClient", () => {
       expect(kickedCallback).toHaveBeenCalledTimes(1);
     });
 
-    it("should close connection after being kicked", () => {
+    it("should close connection after being kicked", async () => {
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onKicked(kickedCallback);
 
       mockConn._trigger("data", { type: "kicked" });
@@ -325,11 +330,11 @@ describe("createPeerClient", () => {
       expect(mockConn.close).toHaveBeenCalled();
     });
 
-    it("should not call state callback for kick messages", () => {
+    it("should not call state callback for kick messages", async () => {
       const stateCallback = vi.fn();
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
       client.onKicked(kickedCallback);
 
@@ -341,8 +346,8 @@ describe("createPeerClient", () => {
   });
 
   describe("destroy", () => {
-    it("should close connection and destroy peer", () => {
-      const { client, mockConn } = setupConnectedClient();
+    it("should close connection and destroy peer", async () => {
+      const { client, mockConn } = await setupConnectedClient();
 
       client.destroy();
 
@@ -350,12 +355,12 @@ describe("createPeerClient", () => {
       expect(mockPeerDestroy).toHaveBeenCalled();
     });
 
-    it("should clear callbacks after destroy", () => {
+    it("should clear callbacks after destroy", async () => {
       const stateCallback = vi.fn();
       const connectionCallback = vi.fn();
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
       client.onConnectionChange(connectionCallback);
       client.onKicked(kickedCallback);
@@ -372,11 +377,11 @@ describe("createPeerClient", () => {
   });
 
   describe("message handling edge cases", () => {
-    it("should ignore null messages", () => {
+    it("should ignore null messages", async () => {
       const stateCallback = vi.fn();
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
       client.onKicked(kickedCallback);
 
@@ -386,11 +391,11 @@ describe("createPeerClient", () => {
       expect(kickedCallback).not.toHaveBeenCalled();
     });
 
-    it("should ignore messages with unknown type", () => {
+    it("should ignore messages with unknown type", async () => {
       const stateCallback = vi.fn();
       const kickedCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
       client.onKicked(kickedCallback);
 
@@ -400,10 +405,10 @@ describe("createPeerClient", () => {
       expect(kickedCallback).not.toHaveBeenCalled();
     });
 
-    it("should handle error messages from host gracefully", () => {
+    it("should handle error messages from host gracefully", async () => {
       const stateCallback = vi.fn();
 
-      const { client, mockConn } = setupConnectedClient();
+      const { client, mockConn } = await setupConnectedClient();
       client.onStateUpdate(stateCallback);
 
       // Should not throw

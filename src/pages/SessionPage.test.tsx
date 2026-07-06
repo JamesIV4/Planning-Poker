@@ -324,7 +324,7 @@ describe("SessionPage", () => {
       );
     });
 
-    it("renders ResultsDisplay in revealed state with votes", () => {
+    it("shows vote distribution in the card panel after reveal", () => {
       usePokerStore.setState({
         session: {
           id: "test-session",
@@ -362,7 +362,10 @@ describe("SessionPage", () => {
 
       renderSessionPage("test-session");
 
-      expect(screen.getByLabelText("Voting results")).toBeInTheDocument();
+      // Results are shown inside the CardSelectionPanel (no separate ResultsDisplay)
+      expect(screen.getByLabelText("Card selection")).toBeInTheDocument();
+      expect(screen.getByLabelText("5: 1 vote")).toBeInTheDocument();
+      expect(screen.getByLabelText("8: 1 vote")).toBeInTheDocument();
     });
 
     it("shows Reveal Cards button for admin during voting", () => {
@@ -422,7 +425,7 @@ describe("SessionPage", () => {
       expect(screen.getByLabelText("Start New Voting")).toBeInTheDocument();
     });
 
-    it("renders ConnectionStatus component", () => {
+    it("does not render a ConnectionStatus banner when connected", () => {
       usePokerStore.setState({
         session: {
           id: "test-session",
@@ -438,8 +441,8 @@ describe("SessionPage", () => {
 
       renderSessionPage("test-session");
 
-      // Connected status renders a status indicator
-      expect(screen.getByLabelText("Connected")).toBeInTheDocument();
+      // ConnectionStatus renders nothing when connected (no banner needed)
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     });
   });
 });

@@ -36,11 +36,20 @@ describe("CardSelectionPanel", () => {
       ).toBeInTheDocument();
     });
 
-    it("does not render during revealed state when not editing", () => {
+    it("renders during revealed state when not editing, showing all cards disabled", () => {
       renderPanel({ gameState: "revealed", isEditing: false });
+      // Panel stays in the DOM during revealed state to display results
       expect(
-        screen.queryByRole("group", { name: "Card selection" }),
-      ).not.toBeInTheDocument();
+        screen.getByRole("group", { name: "Card selection" }),
+      ).toBeInTheDocument();
+      // All card buttons are rendered; numeric/special cards are disabled,
+      // but the coffee (away) card is always actionable
+      const buttons = screen.getAllByRole("button");
+      expect(buttons).toHaveLength(13);
+      const coffeeBtn = screen.getByLabelText("Select card ☕");
+      const numericBtn = screen.getByLabelText("Select card 5");
+      expect(coffeeBtn).not.toBeDisabled();
+      expect(numericBtn).toBeDisabled();
     });
 
     it("renders during revealed state when editing", () => {
@@ -165,7 +174,7 @@ describe("CardSelectionPanel", () => {
   });
 
   describe("post-reveal editing behavior", () => {
-    it("shows only cards with votes when editing after reveal", () => {
+    it("shows all cards when editing after reveal, regardless of vote distribution", () => {
       const distribution = new Map<CardValue, number>([
         [3, 2],
         [5, 1],
@@ -179,12 +188,13 @@ describe("CardSelectionPanel", () => {
         voteDistribution: distribution,
       });
 
+      // All 13 cards are shown when editing — zero-count filtering is disabled
       const buttons = screen.getAllByRole("button");
-      expect(buttons).toHaveLength(3);
-      expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("5")).toBeInTheDocument();
-      expect(screen.getByText("8")).toBeInTheDocument();
-      expect(screen.queryByText("13")).not.toBeInTheDocument();
+      expect(buttons).toHaveLength(13);
+      expect(screen.getByLabelText("Select card 3")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 5")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 8")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 13")).toBeInTheDocument();
     });
 
     it("shows all cards when player has deselected (selectedCard is null) while editing", () => {
@@ -255,7 +265,7 @@ describe("CardSelectionPanel", () => {
       expect(onDeselectCard).toHaveBeenCalled();
     });
 
-    it("filters out zero-vote cards correctly with mixed distribution", () => {
+    it("shows all cards when editing with a sparse distribution", () => {
       const distribution = new Map<CardValue, number>([
         [0, 1],
         [1, 0],
@@ -273,16 +283,16 @@ describe("CardSelectionPanel", () => {
         voteDistribution: distribution,
       });
 
-      // Only cards with count > 0 should be shown: 0, 3, 8, ?
+      // All 13 cards shown when editing — zero-count filter is disabled
       const buttons = screen.getAllByRole("button");
-      expect(buttons).toHaveLength(4);
-      expect(screen.getByText("0")).toBeInTheDocument();
-      expect(screen.getByText("3")).toBeInTheDocument();
-      expect(screen.getByText("8")).toBeInTheDocument();
-      expect(screen.getByText("?")).toBeInTheDocument();
-      expect(screen.queryByText("1")).not.toBeInTheDocument();
-      expect(screen.queryByText("5")).not.toBeInTheDocument();
-      expect(screen.queryByText("☕")).not.toBeInTheDocument();
+      expect(buttons).toHaveLength(13);
+      expect(screen.getByLabelText("Select card 0")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 3")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 8")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card ?")).toBeInTheDocument();
+      // Cards with zero votes are also present when editing
+      expect(screen.getByLabelText("Select card 1")).toBeInTheDocument();
+      expect(screen.getByLabelText("Select card 5")).toBeInTheDocument();
     });
   });
 });
