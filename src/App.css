@@ -301,9 +301,8 @@
 /* Popup-blocked hint with an arrow pointing up toward the top-right button */
 .voting-popup-hint {
   position: fixed;
-  top: 3.75rem;
-  right: 1.25rem;
   z-index: 60;
+  width: 320px;
   max-width: 320px;
   padding: 0.75rem 1rem;
   background-color: var(--color-accent);
@@ -316,7 +315,6 @@
 .voting-popup-hint__arrow {
   position: absolute;
   top: -7px;
-  left: 28px;
   width: 14px;
   height: 14px;
   background-color: var(--color-accent);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useLayoutEffect, useRef } from "react";
 import type { FormEvent } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { usePokerStore } from "../store/usePokerStore";
@@ -34,6 +34,51 @@ export function SessionPage() {
   const [wantVotingPopup, setWantVotingPopup] = useState(true);
   const [votingPopupAttempt, setVotingPopupAttempt] = useState(0);
   const [votingPopupBlocked, setVotingPopupBlocked] = useState(false);
+
+  // The blocked hint is positioned dynamically so its arrow points at the
+  // "Show Voting Panel" button, clamped to the viewport so it never runs off
+  // the edge of the screen.
+  const votingButtonRef = useRef<HTMLButtonElement>(null);
+  const [hintPos, setHintPos] = useState<{
+    left: number;
+    top: number;
+    arrowLeft: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!votingPopupBlocked) return;
+
+    const HINT_WIDTH = 320;
+    const HALF_ARROW = 7;
+    const EDGE_MARGIN = 8;
+    // Arrow's default distance from the hint's left edge (arrow center).
+    const ARROW_INSET = 28 + HALF_ARROW;
+
+    const reposition = () => {
+      const button = votingButtonRef.current;
+      if (!button) return;
+      const rect = button.getBoundingClientRect();
+      const buttonCenter = rect.left + rect.width / 2;
+
+      // Prefer aligning the arrow under the button, then clamp the hint so it
+      // stays on screen. The arrow is then re-aligned to the (clamped) hint.
+      const maxLeft = window.innerWidth - HINT_WIDTH - EDGE_MARGIN;
+      const left = Math.max(
+        EDGE_MARGIN,
+        Math.min(buttonCenter - ARROW_INSET, maxLeft),
+      );
+      const arrowLeft = Math.max(
+        HALF_ARROW,
+        Math.min(buttonCenter - left - HALF_ARROW, HINT_WIDTH - 3 * HALF_ARROW),
+      );
+
+      setHintPos({ left, top: rect.bottom + 10, arrowLeft });
+    };
+
+    reposition();
+    window.addEventListener("resize", reposition);
+    return () => window.removeEventListener("resize", reposition);
+  }, [votingPopupBlocked]);
 
   const currentPlayer = usePokerStore((state) => state.currentPlayer);
   const session = usePokerStore((state) => state.session);
@@ -301,6 +346,7 @@ export function SessionPage() {
             </button>
             {isAdmin && (
               <button
+                ref={votingButtonRef}
                 className={`session-header__voting-btn${votingPopupBlocked ? " session-header__voting-btn--attention" : ""}`}
                 onClick={handleShowVotingPanel}
                 type="button"
@@ -359,13 +405,21 @@ export function SessionPage() {
           </div>
         </header>
 
-        {isAdmin && votingPopupBlocked && (
-          <div className="voting-popup-hint" role="status">
-            <div className="voting-popup-hint__arrow" aria-hidden="true" />
+        {isAdmin && votingPopupBlocked && hintPos && (
+          <div
+            className="voting-popup-hint"
+            role="status"
+            style={{ left: hintPos.left, top: hintPos.top }}
+          >
+            <div
+              className="voting-popup-hint__arrow"
+              aria-hidden="true"
+              style={{ left: hintPos.arrowLeft }}
+            />
             <p className="voting-popup-hint__text">
               Your browser blocked the voting panel. To vote, please allow
               popups for this site, then click{" "}
-              <strong>Show Voting Panel</strong> in the top-right to open it.
+              <strong>Show Voting Panel</strong> to open it.
             </p>
           </div>
         )}
