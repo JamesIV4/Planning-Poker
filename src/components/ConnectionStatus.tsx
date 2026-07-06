@@ -9,7 +9,9 @@ export interface ConnectionStatusProps {
 const GRACE_PERIOD_MS = 8000;
 
 export function ConnectionStatus({ status, onRejoin }: ConnectionStatusProps) {
-  const [ready, setReady] = useState(false);
+  // Seed from the initial status so kicked/ended banners show immediately on
+  // first mount (the render-phase adjustment below only reacts to changes).
+  const [ready, setReady] = useState(status === "kicked" || status === "ended");
   const wasConnectedRef = useRef(false);
 
   // Track if we were ever connected
@@ -19,18 +21,25 @@ export function ConnectionStatus({ status, onRejoin }: ConnectionStatusProps) {
     }
   }, [status]);
 
+  // Adjust `ready` immediately when status changes, during render, which is
+  // React's recommended alternative to a status-syncing effect:
+  // - connected: reset so the next disconnect gets a fresh grace period
+  // - kicked/ended: show the banner immediately (intentional host action)
+  // The timed reveal for disconnected/error is handled by the effect below.
+  const [prevStatus, setPrevStatus] = useState(status);
+  if (status !== prevStatus) {
+    setPrevStatus(status);
+    if (status === "connected") {
+      setReady(false);
+    } else if (status === "kicked" || status === "ended") {
+      setReady(true);
+    }
+  }
+
   // Don't show warning banners until the grace period has elapsed.
   // This prevents flickering on page refresh while connections are re-establishing.
   useEffect(() => {
-    if (status === "connected") {
-      // Reset ready so next disconnect gets a fresh grace period
-      setReady(false);
-      return;
-    }
-
-    if (status === "kicked" || status === "ended") {
-      // Show kicked/ended banner immediately (intentional host action)
-      setReady(true);
+    if (status !== "disconnected" && status !== "error") {
       return;
     }
 

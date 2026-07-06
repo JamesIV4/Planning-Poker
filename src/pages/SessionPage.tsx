@@ -14,6 +14,7 @@ import { CARD_VALUES } from "../types";
 import type { CardValue, Player } from "../types";
 import { PokerTable } from "../components/PokerTable";
 import { CardSelectionPanel } from "../components/CardSelectionPanel";
+import { VotingPanelPopup } from "../components/VotingPanelPopup";
 import { ConnectionStatus } from "../components/ConnectionStatus";
 
 export function SessionPage() {
@@ -26,32 +27,34 @@ export function SessionPage() {
   const [copied, setCopied] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
 
+  // Admin voting panel lives in a separate popup window. `wantVotingPopup`
+  // tracks whether it should be open, `votingPopupAttempt` remounts the popup
+  // to force a fresh open attempt (used by the retry button), and
+  // `votingPopupBlocked` drives the "allow popups" hint.
+  const [wantVotingPopup, setWantVotingPopup] = useState(true);
+  const [votingPopupAttempt, setVotingPopupAttempt] = useState(0);
+  const [votingPopupBlocked, setVotingPopupBlocked] = useState(false);
+
   const currentPlayer = usePokerStore((state) => state.currentPlayer);
   const session = usePokerStore((state) => state.session);
   const gameState = usePokerStore((state) => state.gameState);
 
   // Restore session from localStorage on mount if store is empty
   useEffect(() => {
-    if (currentPlayer) {
-      // Already have state, no need to restore
-      setIsInitializing(false);
-      return;
+    if (!currentPlayer && sessionId) {
+      const persisted = loadSession(sessionId);
+      if (persisted) {
+        usePokerStore.setState({
+          session: persisted.session,
+          currentPlayer: persisted.currentPlayer,
+          gameState: persisted.gameState,
+        });
+      }
     }
 
-    if (!sessionId) {
-      setIsInitializing(false);
-      return;
-    }
-
-    const persisted = loadSession(sessionId);
-    if (persisted) {
-      usePokerStore.setState({
-        session: persisted.session,
-        currentPlayer: persisted.currentPlayer,
-        gameState: persisted.gameState,
-      });
-    }
-
+    // Mark the one-time mount restore as complete. This flag exists purely to
+    // gate the first render until the localStorage restore has run.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsInitializing(false);
   }, [sessionId, currentPlayer]);
 
@@ -75,12 +78,16 @@ export function SessionPage() {
     hasJoined,
   });
 
-  // Reset isEditing when a new voting round starts
-  useEffect(() => {
+  // Reset isEditing when a new voting round starts. Adjusting state during
+  // render (rather than in an effect) is React's recommended pattern for
+  // resetting state in response to a value change.
+  const [prevGameState, setPrevGameState] = useState(gameState);
+  if (gameState !== prevGameState) {
+    setPrevGameState(gameState);
     if (gameState === "voting") {
       setIsEditing(false);
     }
-  }, [gameState]);
+  }
 
   // Update page title with session name
   useEffect(() => {
@@ -94,8 +101,11 @@ export function SessionPage() {
     };
   }, [session?.name]);
 
-  // Simulated voters (localhost only)
+  // Simulated voters (localhost only). The ref is the source of truth used by
+  // the voting effect; simPlayerCount mirrors its length for rendering so we
+  // don't read the ref during render.
   const simulatedPlayersRef = useRef<Player[]>([]);
+  const [simPlayerCount, setSimPlayerCount] = useState(0);
   const showSimControls = isLocalhost() && isAdmin;
 
   // When a voting round starts, simulated voters cast random votes after a short delay
@@ -122,6 +132,7 @@ export function SessionPage() {
   const handleAddSimPlayer = () => {
     const player = createSimulatedPlayer();
     simulatedPlayersRef.current = [...simulatedPlayersRef.current, player];
+    setSimPlayerCount(simulatedPlayersRef.current.length);
     usePokerStore.getState().addPlayer(player);
   };
 
@@ -131,6 +142,7 @@ export function SessionPage() {
       store.removePlayer(player.id);
     }
     simulatedPlayersRef.current = [];
+    setSimPlayerCount(0);
   };
 
   function handleJoin(e: FormEvent) {
@@ -255,6 +267,13 @@ export function SessionPage() {
       });
     };
 
+    // Re-open the admin voting panel popup (used after it was blocked or closed)
+    const handleShowVotingPanel = () => {
+      setVotingPopupBlocked(false);
+      setWantVotingPopup(true);
+      setVotingPopupAttempt((n) => n + 1);
+    };
+
     // End session and navigate home
     const handleEndSession = () => {
       endSession();
@@ -280,6 +299,16 @@ export function SessionPage() {
             >
               {copied ? "Copied!" : "Copy Link"}
             </button>
+            {isAdmin && (
+              <button
+                className={`session-header__voting-btn${votingPopupBlocked ? " session-header__voting-btn--attention" : ""}`}
+                onClick={handleShowVotingPanel}
+                type="button"
+                aria-label="Show voting panel"
+              >
+                Show Voting Panel
+              </button>
+            )}
             {isAdmin && players.length > 1 && (
               <button
                 className={`session-header__copy-btn${isEditingParticipants ? " session-header__copy-btn--active" : ""}`}
@@ -297,7 +326,7 @@ export function SessionPage() {
             )}
             {showSimControls && (
               <>
-                {simulatedPlayersRef.current.length > 0 && (
+                {simPlayerCount > 0 && (
                   <button
                     className="session-header__sim-btn session-header__sim-btn--remove"
                     onClick={handleRemoveSimPlayers}
@@ -330,6 +359,17 @@ export function SessionPage() {
           </div>
         </header>
 
+        {isAdmin && votingPopupBlocked && (
+          <div className="voting-popup-hint" role="status">
+            <div className="voting-popup-hint__arrow" aria-hidden="true" />
+            <p className="voting-popup-hint__text">
+              Your browser blocked the voting panel. To vote, please allow
+              popups for this site, then click{" "}
+              <strong>Show Voting Panel</strong> in the top-right to open it.
+            </p>
+          </div>
+        )}
+
         <div className="game-view" data-testid="game-view">
           <ConnectionStatus status={connectionStatus} onRejoin={rejoin} />
 
@@ -348,19 +388,61 @@ export function SessionPage() {
             onKickPlayer={kickPlayer}
           />
 
-          <CardSelectionPanel
-            cards={CARD_VALUES}
-            selectedCard={selectedCard}
-            gameState={gameState}
-            isEditing={isEditing}
-            voteDistribution={
-              gameState === "revealed" ? voteDistribution : null
+          {(() => {
+            const buildPanel = (
+              voteDistributionForPanel: typeof voteDistribution | null,
+            ) => (
+              <CardSelectionPanel
+                cards={CARD_VALUES}
+                selectedCard={selectedCard}
+                gameState={gameState}
+                isEditing={isEditing}
+                voteDistribution={voteDistributionForPanel}
+                averageScore={averageScore}
+                agreementRatio={agreementRatio}
+                onSelectCard={handleSelectCard}
+                onDeselectCard={handleDeselectCard}
+              />
+            );
+
+            const resultsDistribution =
+              gameState === "revealed" ? voteDistribution : null;
+
+            // Non-admins vote and view results inline, as usual.
+            if (!isAdmin) {
+              return buildPanel(resultsDistribution);
             }
-            averageScore={averageScore}
-            agreementRatio={agreementRatio}
-            onSelectCard={handleSelectCard}
-            onDeselectCard={handleDeselectCard}
-          />
+
+            // Admins cast/edit votes in the always-open popup (buttons only, no
+            // results). The main UI keeps the panel inline so its space is
+            // always reserved and the table/players don't shift; it's hidden
+            // until results are revealed, then shows the results in place.
+            return (
+              <>
+                <div
+                  className={`voting-results-slot${
+                    gameState === "revealed"
+                      ? ""
+                      : " voting-results-slot--hidden"
+                  }`}
+                >
+                  {buildPanel(resultsDistribution)}
+                </div>
+                <VotingPanelPopup
+                  key={votingPopupAttempt}
+                  isOpen={wantVotingPopup}
+                  title={
+                    session?.name ? `Voting - ${session.name}` : "Voting Panel"
+                  }
+                  onBlocked={() => setVotingPopupBlocked(true)}
+                  onOpened={() => setVotingPopupBlocked(false)}
+                  onClose={() => setWantVotingPopup(false)}
+                >
+                  {buildPanel(null)}
+                </VotingPanelPopup>
+              </>
+            );
+          })()}
         </div>
       </div>
     );

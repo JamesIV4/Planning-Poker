@@ -228,7 +228,35 @@ describe("SessionPage", () => {
       expect(screen.getByLabelText("Poker table")).toBeInTheDocument();
     });
 
-    it("renders CardSelectionPanel during voting state", () => {
+    it("renders CardSelectionPanel inline for a non-admin during voting", () => {
+      usePokerStore.setState({
+        session: {
+          id: "test-session",
+          name: "Sprint Planning",
+          adminId: "admin-1",
+          players: [
+            { id: "admin-1", displayName: "Admin", isAdmin: true },
+            { id: "player-1", displayName: "Bob", isAdmin: false },
+          ],
+          currentRound: {
+            id: "round-1",
+            state: "voting",
+            votes: [],
+            startedAt: Date.now(),
+            revealedAt: null,
+          },
+          createdAt: Date.now(),
+        },
+        currentPlayer: { id: "player-1", displayName: "Bob", isAdmin: false },
+        gameState: "voting",
+      });
+
+      renderSessionPage("test-session");
+
+      expect(screen.getByLabelText("Card selection")).toBeInTheDocument();
+    });
+
+    it("keeps the results panel inline but hidden while the admin is voting", () => {
       usePokerStore.setState({
         session: {
           id: "test-session",
@@ -250,7 +278,50 @@ describe("SessionPage", () => {
 
       renderSessionPage("test-session");
 
-      expect(screen.getByLabelText("Card selection")).toBeInTheDocument();
+      // The admin votes in the popup, but the inline panel stays in the DOM to
+      // reserve its space; during voting it lives in the hidden results slot.
+      const panel = screen.getByLabelText("Card selection");
+      expect(panel.closest(".voting-results-slot")).toHaveClass(
+        "voting-results-slot--hidden",
+      );
+      expect(
+        screen.getByRole("button", { name: "Show voting panel" }),
+      ).toBeInTheDocument();
+    });
+
+    it("reveals the inline results panel for the admin after reveal", () => {
+      usePokerStore.setState({
+        session: {
+          id: "test-session",
+          name: "Sprint Planning",
+          adminId: "admin-1",
+          players: [{ id: "admin-1", displayName: "Admin", isAdmin: true }],
+          currentRound: {
+            id: "round-1",
+            state: "revealed",
+            votes: [
+              {
+                playerId: "admin-1",
+                card: 5,
+                votedAt: Date.now(),
+                wasChanged: false,
+              },
+            ],
+            startedAt: Date.now(),
+            revealedAt: Date.now(),
+          },
+          createdAt: Date.now(),
+        },
+        currentPlayer: { id: "admin-1", displayName: "Admin", isAdmin: true },
+        gameState: "revealed",
+      });
+
+      renderSessionPage("test-session");
+
+      const panel = screen.getByLabelText("Card selection");
+      expect(panel.closest(".voting-results-slot")).not.toHaveClass(
+        "voting-results-slot--hidden",
+      );
     });
 
     it("renders ResultsDisplay in revealed state with votes", () => {

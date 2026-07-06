@@ -265,6 +265,132 @@
   color: var(--color-bg);
 }
 
+/* Admin "Show Voting Panel" button — filled accent so it reads as primary */
+.session-header__voting-btn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fff;
+  background-color: var(--color-accent);
+  border-radius: var(--radius-md);
+  transition:
+    background-color 0.2s,
+    box-shadow 0.2s;
+  white-space: nowrap;
+}
+
+.session-header__voting-btn:hover {
+  background-color: var(--color-accent-hover);
+}
+
+/* When the popup was blocked, pulse to draw attention */
+.session-header__voting-btn--attention {
+  animation: voting-btn-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes voting-btn-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 var(--color-accent-muted);
+  }
+  50% {
+    box-shadow: 0 0 0 6px var(--color-accent-muted);
+  }
+}
+
+/* Popup-blocked hint with an arrow pointing up toward the top-right button */
+.voting-popup-hint {
+  position: fixed;
+  top: 3.75rem;
+  right: 1.25rem;
+  z-index: 60;
+  max-width: 320px;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-accent);
+  color: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  animation: voting-hint-in 0.2s ease-out;
+}
+
+.voting-popup-hint__arrow {
+  position: absolute;
+  top: -7px;
+  left: 28px;
+  width: 14px;
+  height: 14px;
+  background-color: var(--color-accent);
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+
+.voting-popup-hint__text {
+  position: relative;
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+}
+
+@keyframes voting-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Inline voting-results slot (admin main UI). Always occupies its space so the
+   table/players don't jump; only becomes visible once results are revealed. */
+.voting-results-slot {
+  width: 100%;
+}
+
+.voting-results-slot--hidden {
+  visibility: hidden;
+}
+
+/* Voting panel rendered inside the popup window. The panel normally scales
+   with viewport units, which collapses to the minimum sizes in a small popup.
+   Pin the full sizes here so the popup shows the panel at full scale. */
+.voting-popup-root {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voting-popup-root .card-selection-panel {
+  padding: 1rem 0.75rem;
+  /* Center content instead of the app's default flex-end, and don't stretch
+     to fill the window so the root flex can center the panel vertically. */
+  min-height: 0;
+  justify-content: center;
+}
+
+.voting-popup-root .card-selection-panel__cards {
+  gap: 0.375rem;
+}
+
+.voting-popup-root .card-selection-panel__card {
+  width: 48px;
+  height: 64px;
+  font-size: 1rem;
+}
+
+.voting-popup-root .card-selection-panel__bar-wrapper {
+  height: 100px;
+}
+
+/* In voting state the bar-wrapper is only a hidden spacer (inline
+   visibility: hidden). Collapse it in the popup so it doesn't push the
+   buttons down; the visible result bars on reveal are unaffected. */
+.voting-popup-root .card-selection-panel__bar-wrapper[style*="hidden"] {
+  display: none;
+}
+
 /* Responsive: small screens */
 @media (max-width: 600px) {
   .session-header {
@@ -281,7 +407,8 @@
 
   .session-header__copy-btn,
   .session-header__end-btn,
-  .session-header__sim-btn {
+  .session-header__sim-btn,
+  .session-header__voting-btn {
     padding: 0.375rem 0.625rem;
     font-size: 0.75rem;
   }

@@ -15,7 +15,7 @@
 /* Editing label — absolutely positioned so it doesn't shift layout */
 .card-selection-panel__editing-label {
   position: absolute;
-  top: 0;
+  top: -20px;
   left: 50%;
   transform: translateX(-50%);
   font-size: 0.75rem;
