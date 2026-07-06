@@ -9,6 +9,7 @@ import type {
   SessionState,
   Vote,
 } from "../types";
+import { COFFEE_CARD } from "../types";
 
 // --- Arbitraries ---
 
@@ -164,13 +165,14 @@ describe("Property Tests: usePokerStore", () => {
   });
 
   /**
-   * **Property 4: New round clears all previous votes**
-   * Starting a new voting round results in zero votes.
+   * **Property 4: New round clears all votes except coffee (away) players**
+   * Starting a new voting round clears every non-coffee vote, but coffee votes
+   * carry over so away players stay away until they vote again themselves.
    *
    * **Validates: Requirements 3.5**
    */
-  describe("Property 4: New round clears all previous votes", () => {
-    it("starting a new round always results in zero votes", () => {
+  describe("Property 4: New round clears all votes except away players", () => {
+    it("keeps only coffee votes after starting a new round", () => {
       fc.assert(
         fc.property(
           fc.integer({ min: 1, max: 6 }),
@@ -189,11 +191,25 @@ describe("Property Tests: usePokerStore", () => {
             usePokerStore.getState().revealCards();
             expect(usePokerStore.getState().gameState).toBe("revealed");
 
+            // Capture which players were "away" (coffee) before the reset
+            const coffeeBefore = usePokerStore
+              .getState()
+              .session!.currentRound!.votes.filter(
+                (v) => v.card === COFFEE_CARD,
+              )
+              .map((v) => v.playerId)
+              .sort();
+
             // Start new voting
             usePokerStore.getState().startNewVoting();
 
             const round = usePokerStore.getState().session!.currentRound!;
-            expect(round.votes).toHaveLength(0);
+            // Every remaining vote is a carried-over coffee vote...
+            expect(round.votes.every((v) => v.card === COFFEE_CARD)).toBe(true);
+            // ...and exactly the away players carried over.
+            expect(round.votes.map((v) => v.playerId).sort()).toEqual(
+              coffeeBefore,
+            );
           },
         ),
         { numRuns: 100 },
@@ -301,14 +317,21 @@ describe("Property Tests: usePokerStore", () => {
             expect(ratio).toBeGreaterThanOrEqual(0);
             expect(ratio).toBeLessThanOrEqual(1);
 
-            // Compute expected: single voter = 1, otherwise (maxCount - 1) / (total - 1)
+            // Coffee (away) players are excluded from agreement. Compute the
+            // expected ratio over the remaining votes: none = 0, single = 1,
+            // otherwise (maxCount - 1) / (counted - 1).
+            const counted = cards.filter((c) => c !== COFFEE_CARD);
             const counts = new Map<CardValue, number>();
-            for (const card of cards) {
+            for (const card of counted) {
               counts.set(card, (counts.get(card) ?? 0) + 1);
             }
-            const maxCount = Math.max(...counts.values());
+            const maxCount = counts.size > 0 ? Math.max(...counts.values()) : 0;
             const expectedRatio =
-              cards.length === 1 ? 1 : (maxCount - 1) / (cards.length - 1);
+              counted.length === 0
+                ? 0
+                : counted.length === 1
+                  ? 1
+                  : (maxCount - 1) / (counted.length - 1);
 
             expect(ratio).toBeCloseTo(expectedRatio, 10);
           },
@@ -319,13 +342,14 @@ describe("Property Tests: usePokerStore", () => {
   });
 
   /**
-   * **Property 8: Vote distribution sum equals total voters**
-   * Sum of vote distribution values = total number of voters.
+   * **Property 8: Vote distribution sum equals counted voters**
+   * Sum of vote distribution values = number of non-coffee (counted) votes.
+   * Coffee (away) players are excluded from the tally.
    *
    * **Validates: Requirements 7.1, 7.5**
    */
-  describe("Property 8: Vote distribution sum equals total voters", () => {
-    it("sum of distribution values equals total number of votes", () => {
+  describe("Property 8: Vote distribution sum equals counted voters", () => {
+    it("sum of distribution values equals number of non-coffee votes", () => {
       fc.assert(
         fc.property(
           fc.array(arbCardValue, { minLength: 1, maxLength: 15 }),
@@ -361,7 +385,8 @@ describe("Property Tests: usePokerStore", () => {
               sum += count;
             }
 
-            expect(sum).toBe(cards.length);
+            const counted = cards.filter((c) => c !== COFFEE_CARD);
+            expect(sum).toBe(counted.length);
           },
         ),
         { numRuns: 100 },

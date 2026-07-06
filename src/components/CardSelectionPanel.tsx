@@ -1,4 +1,5 @@
 import type { CardValue, GameState } from "../types";
+import { COFFEE_CARD } from "../types";
 import "./CardSelectionPanel.css";
 
 export interface CardSelectionProps {
@@ -57,7 +58,9 @@ export function CardSelectionPanel({
   const emptyLength = circumference - filledLength;
 
   const handleCardClick = (card: CardValue) => {
-    if (!isClickable) return;
+    // The coffee (away) card is always actionable, even when the panel is
+    // otherwise locked — a player can mark themselves away at any time.
+    if (!isClickable && card !== COFFEE_CARD) return;
     if (card === selectedCard) {
       onDeselectCard();
     } else {
@@ -85,6 +88,9 @@ export function CardSelectionPanel({
             const barHeight =
               showBars && maxCount > 0 ? (count / maxCount) * 100 : 0;
             const hasNoVotes = showBars && count === 0;
+            // Coffee (away) is exempt from being disabled with the rest.
+            const isCoffee = card === COFFEE_CARD;
+            const cardClickable = isClickable || isCoffee;
 
             // Hide no-vote cards in revealed state unless editing
             if (hasNoVotes && !isEditing) {
@@ -120,7 +126,7 @@ export function CardSelectionPanel({
                     showBars && !isEditing && !isHighlight
                       ? "card-selection-panel__card--dim"
                       : "",
-                    !isClickable && gameState === "waiting"
+                    !cardClickable && gameState === "waiting"
                       ? "card-selection-panel__card--disabled"
                       : "",
                   ]
@@ -130,7 +136,7 @@ export function CardSelectionPanel({
                   aria-label={`Select card ${card}`}
                   aria-pressed={isSelected}
                   type="button"
-                  disabled={!isClickable}
+                  disabled={!cardClickable}
                 >
                   {card}
                 </button>

@@ -143,6 +143,27 @@ describe("CardSelectionPanel", () => {
     });
   });
 
+  describe("when the panel is locked (waiting state)", () => {
+    it("disables the numeric cards but keeps the coffee card actionable", () => {
+      const onSelectCard = vi.fn();
+      renderPanel({ gameState: "waiting", selectedCard: null, onSelectCard });
+
+      const numericCard = screen.getByLabelText("Select card 5");
+      const coffeeCard = screen.getByLabelText("Select card ☕");
+
+      expect(numericCard).toBeDisabled();
+      expect(coffeeCard).not.toBeDisabled();
+
+      // Clicking a disabled numeric card does nothing...
+      fireEvent.click(numericCard);
+      expect(onSelectCard).not.toHaveBeenCalled();
+
+      // ...but a player can still mark themselves away.
+      fireEvent.click(coffeeCard);
+      expect(onSelectCard).toHaveBeenCalledWith("☕");
+    });
+  });
+
   describe("post-reveal editing behavior", () => {
     it("shows only cards with votes when editing after reveal", () => {
       const distribution = new Map<CardValue, number>([

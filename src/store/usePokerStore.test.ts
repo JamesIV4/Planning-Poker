@@ -498,6 +498,30 @@ describe("usePokerStore - Voting Actions", () => {
       expect(session!.currentRound!.revealedAt).toBeNull();
     });
 
+    it("keeps away (coffee) votes when starting a new round", () => {
+      usePokerStore.getState().createSession("Test Session");
+      const adminId = usePokerStore.getState().currentPlayer!.id;
+      const awayPlayer: Player = {
+        id: "away-1",
+        displayName: "Away",
+        isAdmin: false,
+      };
+      usePokerStore.getState().addPlayer(awayPlayer);
+
+      // Admin votes a number, the other player marks themselves away (coffee)
+      usePokerStore.getState().castVote(adminId, 5);
+      usePokerStore.getState().castVote(awayPlayer.id, "☕");
+      usePokerStore.getState().revealCards();
+
+      usePokerStore.getState().startNewVoting();
+
+      const votes = usePokerStore.getState().session!.currentRound!.votes;
+      // The numeric vote is cleared, the coffee vote carries over
+      expect(votes).toHaveLength(1);
+      expect(votes[0].playerId).toBe(awayPlayer.id);
+      expect(votes[0].card).toBe("☕");
+    });
+
     it("transitions from waiting to voting", () => {
       usePokerStore.getState().createSession("Test Session");
       expect(usePokerStore.getState().gameState).toBe("waiting");
@@ -777,7 +801,7 @@ describe("usePokerStore - Computed Values", () => {
       expect(distribution.get(13)).toBeUndefined();
     });
 
-    it("handles special card values in distribution", () => {
+    it("counts ? but excludes coffee (away) players from distribution", () => {
       usePokerStore.getState().createSession("Test Session");
       const session = usePokerStore.getState().session!;
 
@@ -816,7 +840,8 @@ describe("usePokerStore - Computed Values", () => {
 
       const distribution = usePokerStore.getState().getVoteDistribution();
       expect(distribution.get("?")).toBe(2);
-      expect(distribution.get("☕")).toBe(1);
+      // Coffee (away) players are excluded from the tally.
+      expect(distribution.get("☕")).toBeUndefined();
     });
   });
 
@@ -1220,6 +1245,54 @@ describe("usePokerStore - Computed Values", () => {
       const ratio = usePokerStore.getState().getAgreementRatio();
       // Most common is "?" with 3 votes, total 4 voters: (3-1)/(4-1) = 2/3
       expect(ratio).toBeCloseTo(2 / 3);
+    });
+
+    it("excludes away (coffee) players from agreement calculation", () => {
+      usePokerStore.getState().createSession("Test Session");
+      const session = usePokerStore.getState().session!;
+
+      usePokerStore.setState({
+        session: {
+          ...session,
+          currentRound: {
+            id: "round-1",
+            state: "revealed",
+            votes: [
+              {
+                playerId: "p1",
+                card: 5,
+                votedAt: Date.now(),
+                wasChanged: false,
+              },
+              {
+                playerId: "p2",
+                card: 5,
+                votedAt: Date.now(),
+                wasChanged: false,
+              },
+              // Two away players should not dilute agreement of the voters.
+              {
+                playerId: "p3",
+                card: "☕",
+                votedAt: Date.now(),
+                wasChanged: false,
+              },
+              {
+                playerId: "p4",
+                card: "☕",
+                votedAt: Date.now(),
+                wasChanged: false,
+              },
+            ],
+            startedAt: Date.now(),
+            revealedAt: Date.now(),
+          },
+        },
+        gameState: "revealed",
+      });
+
+      // Only the two numeric voters count, and they agree: 100%.
+      expect(usePokerStore.getState().getAgreementRatio()).toBe(1);
     });
   });
 

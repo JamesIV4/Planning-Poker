@@ -8,6 +8,7 @@ import type {
   Session,
   SessionState,
 } from "../types";
+import { COFFEE_CARD } from "../types";
 import { saveSession } from "../utils/sessionPersistence";
 
 const NUMERIC_CARDS: NumericCard[] = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
@@ -274,10 +275,16 @@ export const usePokerStore = create<PlanningPokerStore>((set, get) => ({
     // startNewVoting only works when gameState is "revealed" or "waiting"
     if (gameState !== "revealed" && gameState !== "waiting") return;
 
+    // Coffee votes carry over: a player marked away stays away across rounds
+    // until they change their own vote when they're back at their seat.
+    const carriedVotes = (session.currentRound?.votes ?? [])
+      .filter((v) => v.card === COFFEE_CARD)
+      .map((v) => ({ ...v, wasChanged: false, votedAt: Date.now() }));
+
     const newRound = {
       id: nanoid(10),
       state: "voting" as GameState,
-      votes: [],
+      votes: carriedVotes,
       startedAt: Date.now(),
       revealedAt: null,
     };
@@ -334,6 +341,8 @@ export const usePokerStore = create<PlanningPokerStore>((set, get) => ({
     if (!session?.currentRound) return distribution;
 
     for (const vote of session.currentRound.votes) {
+      // Coffee (away) players are excluded from the tally.
+      if (vote.card === COFFEE_CARD) continue;
       const count = distribution.get(vote.card) ?? 0;
       distribution.set(vote.card, count + 1);
     }
@@ -359,7 +368,10 @@ export const usePokerStore = create<PlanningPokerStore>((set, get) => ({
     const { session } = get();
     if (!session?.currentRound) return 0;
 
-    const votes = session.currentRound.votes;
+    // Coffee (away) players are excluded from agreement tabulation.
+    const votes = session.currentRound.votes.filter(
+      (v) => v.card !== COFFEE_CARD,
+    );
     if (votes.length === 0) return 0;
     if (votes.length === 1) return 1;
 

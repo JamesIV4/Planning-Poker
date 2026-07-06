@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import type { Player, Vote, GameState, CardValue } from "../types";
+import { COFFEE_CARD } from "../types";
 import { PlayerCard } from "./PlayerCard";
 import "./PokerTable.css";
 
@@ -207,13 +208,15 @@ export function PokerTable({
     winningNumeric: number | null;
     maxDistance: number;
   } => {
-    if (gameState !== "revealed" || votes.length === 0) {
+    // Coffee (away) players are ignored when determining the winner/spread.
+    const countedVotes = votes.filter((v) => v.card !== COFFEE_CARD);
+    if (gameState !== "revealed" || countedVotes.length === 0) {
       return { winningCards: new Set(), winningNumeric: null, maxDistance: 0 };
     }
 
     // Count votes per card
     const counts = new Map<CardValue, number>();
-    for (const vote of votes) {
+    for (const vote of countedVotes) {
       counts.set(vote.card, (counts.get(vote.card) ?? 0) + 1);
     }
 
@@ -270,8 +273,14 @@ export function PokerTable({
     return dist / maxDistance;
   };
 
+  // Only "?" is a special (blue) card. Coffee is handled as "ignored" instead,
+  // so an away player's card is left visually neutral.
   const isSpecialCard = (card: CardValue): boolean => {
-    return card === "?" || card === "☕";
+    return card === "?";
+  };
+
+  const isIgnoredCard = (card: CardValue): boolean => {
+    return card === COFFEE_CARD;
   };
 
   const isWinnerCard = (card: CardValue): boolean => {
@@ -387,6 +396,11 @@ export function PokerTable({
             ? isSpecialCard(getVoteValue(player.id)!)
             : false
         }
+        isIgnored={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isIgnoredCard(getVoteValue(player.id)!)
+            : false
+        }
         distanceRatio={
           gameState === "revealed" && hasVoted(player.id)
             ? getDistanceRatio(getVoteValue(player.id)!)
@@ -413,6 +427,11 @@ export function PokerTable({
         isSpecial={
           gameState === "revealed" && hasVoted(player.id)
             ? isSpecialCard(getVoteValue(player.id)!)
+            : false
+        }
+        isIgnored={
+          gameState === "revealed" && hasVoted(player.id)
+            ? isIgnoredCard(getVoteValue(player.id)!)
             : false
         }
         distanceRatio={

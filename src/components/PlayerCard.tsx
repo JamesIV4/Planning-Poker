@@ -14,6 +14,8 @@ export interface PlayerCardProps {
   playerName: string;
   isWinner?: boolean;
   isSpecial?: boolean;
+  /** Away (coffee) player: revealed neutrally, excluded from winner/spread coloring. */
+  isIgnored?: boolean;
   distanceRatio?: number;
 }
 
@@ -25,6 +27,7 @@ export function PlayerCard({
   playerName,
   isWinner = false,
   isSpecial = false,
+  isIgnored = false,
   distanceRatio = 0,
 }: PlayerCardProps) {
   const getCardClassName = (): string => {
@@ -42,7 +45,10 @@ export function PlayerCard({
     if (gameState === "revealed" && hasVoted) {
       classes.push("player-card--flipped");
 
-      if (isWinner) {
+      // Away (coffee) players get no result coloring — left visually neutral.
+      if (isIgnored) {
+        // no color modifier
+      } else if (isWinner) {
         classes.push("player-card--winner");
       } else if (isSpecial) {
         classes.push("player-card--special");
@@ -67,7 +73,13 @@ export function PlayerCard({
   // Compute dynamic color based on distanceRatio (yellow → orange → red)
   // Yellow: hsl(45, 95%, 60%)  Orange: hsl(25, 95%, 55%)  Red: hsl(0, 90%, 65%)
   const getDistanceStyle = (): React.CSSProperties | undefined => {
-    if (gameState !== "revealed" || !hasVoted || isWinner || isSpecial) {
+    if (
+      gameState !== "revealed" ||
+      !hasVoted ||
+      isWinner ||
+      isSpecial ||
+      isIgnored
+    ) {
       return undefined;
     }
 

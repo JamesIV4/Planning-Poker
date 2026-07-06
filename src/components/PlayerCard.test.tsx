@@ -98,6 +98,25 @@ describe("PlayerCard", () => {
       expect(screen.getByText("☕")).toBeInTheDocument();
     });
 
+    it("shows an away (coffee) player neutrally with no result coloring", () => {
+      const { container } = renderCard({
+        gameState: "revealed",
+        hasVoted: true,
+        voteValue: "☕",
+        isIgnored: true,
+        // Even if winner/off-winner hints are passed, an ignored card stays neutral.
+        isWinner: true,
+        distanceRatio: 1,
+      });
+
+      const card = container.querySelector(".player-card");
+      expect(card).toHaveClass("player-card--flipped");
+      expect(card).not.toHaveClass("player-card--winner");
+      expect(card).not.toHaveClass("player-card--special");
+      expect(card).not.toHaveClass("player-card--off-winner");
+      expect(screen.getByText("☕")).toBeInTheDocument();
+    });
+
     it("has correct aria-label with vote value", () => {
       renderCard({
         gameState: "revealed",

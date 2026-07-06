@@ -69,6 +69,10 @@ export interface ActionMessage {
   payload: PlayerAction;
 }
 
+// The coffee card marks a player as "away" / ignored: their vote persists
+// across rounds and is excluded from all tabulation.
+export const COFFEE_CARD = "☕" as const;
+
 // Card values constant
 export const CARD_VALUES: CardValue[] = [
   0,
