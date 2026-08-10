@@ -73,6 +73,12 @@ export interface ActionMessage {
 // across rounds and is excluded from all tabulation.
 export const COFFEE_CARD = "☕" as const;
 
+// The numeric subset of the deck, i.e. cards that represent an actual estimate
+// and can be averaged.
+export const NUMERIC_CARDS: NumericCard[] = [
+  0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89,
+];
+
 // Card values constant
 export const CARD_VALUES: CardValue[] = [
   0,

@@ -8,10 +8,8 @@ import type {
   Session,
   SessionState,
 } from "../types";
-import { COFFEE_CARD } from "../types";
+import { COFFEE_CARD, NUMERIC_CARDS } from "../types";
 import { saveSession } from "../utils/sessionPersistence";
-
-const NUMERIC_CARDS: NumericCard[] = [0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89];
 
 export interface PlanningPokerStore {
   // Session state

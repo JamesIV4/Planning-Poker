@@ -10,6 +10,10 @@ import {
   getRandomVote,
   isLocalhost,
 } from "../utils/simulatedVoters";
+import {
+  fireConsensusConfetti,
+  hasUnanimousNumericVote,
+} from "../utils/consensusConfetti";
 import { CARD_VALUES } from "../types";
 import type { CardValue, Player } from "../types";
 import { PokerTable } from "../components/PokerTable";
@@ -134,6 +138,31 @@ export function SessionPage() {
     }
   }
 
+  // Celebrate a unanimous numeric vote while results are revealed, including
+  // when a post-reveal edit brings the table into line. The ref latches so the
+  // burst fires once per run of consensus rather than on every vote change,
+  // and re-arms if an edit breaks consensus or a new round starts.
+  //
+  // This lives here rather than in CardSelectionPanel because the admin renders
+  // that panel twice (inline results + voting popup), which would double-fire.
+  const roundVotes = session?.currentRound?.votes;
+  const consensusCelebratedRef = useRef(false);
+  useEffect(() => {
+    if (gameState !== "revealed") {
+      consensusCelebratedRef.current = false;
+      return;
+    }
+
+    if (!hasUnanimousNumericVote(roundVotes ?? [])) {
+      consensusCelebratedRef.current = false;
+      return;
+    }
+
+    if (consensusCelebratedRef.current) return;
+    consensusCelebratedRef.current = true;
+    fireConsensusConfetti();
+  }, [gameState, roundVotes]);
+
   // Update page title with session name
   useEffect(() => {
     if (session?.name) {
@@ -152,6 +181,11 @@ export function SessionPage() {
   const simulatedPlayersRef = useRef<Player[]>([]);
   const [simPlayerCount, setSimPlayerCount] = useState(0);
   const showSimControls = isLocalhost() && isAdmin;
+
+  // Confetti is hard to iterate on when it only appears on a unanimous reveal,
+  // so localhost gets a button to fire it on demand. Not gated on isAdmin —
+  // it's useful for checking the burst position in a participant tab too.
+  const showConfettiDebug = isLocalhost();
 
   // When a voting round starts, simulated voters cast random votes after a short delay
   useEffect(() => {
@@ -391,6 +425,16 @@ export function SessionPage() {
                   + Bot
                 </button>
               </>
+            )}
+            {showConfettiDebug && (
+              <button
+                className="session-header__sim-btn"
+                onClick={() => fireConsensusConfetti()}
+                type="button"
+                aria-label="Test confetti effect"
+              >
+                🎉 Confetti
+              </button>
             )}
             {isAdmin && (
               <button
