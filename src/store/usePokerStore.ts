@@ -217,12 +217,15 @@ export const usePokerStore = create<PlanningPokerStore>((set, get) => ({
           )
         : [...currentRound.votes, newVote];
 
+    // The round's own state is carried over by the spread rather than forced to
+    // "voting": a stray vote must never un-reveal a revealed round, which would
+    // desync gameState from round.state and, for the host, broadcast a
+    // pre-reveal round to every client.
     set({
       session: {
         ...session,
         currentRound: {
           ...currentRound,
-          state: "voting",
           votes: updatedVotes,
         },
       },

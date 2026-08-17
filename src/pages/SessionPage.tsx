@@ -273,6 +273,13 @@ export function SessionPage() {
     const currentPlayerVote = votes.find((v) => v.playerId === currentPlayerId);
     const selectedCard: CardValue | null = currentPlayerVote?.card ?? null;
 
+    // Entering post-reveal edit mode clears the highlighted selection so the
+    // player can immediately re-pick any card, including the one they already
+    // had. Their vote stays in the round (and on the table) until they pick a
+    // replacement, so the revealed results everyone is looking at don't shift.
+    const panelSelectedCard: CardValue | null =
+      isEditing && gameState === "revealed" ? null : selectedCard;
+
     // Computed values from store
     const store = usePokerStore.getState();
     const voteDistribution = store.getVoteDistribution();
@@ -293,7 +300,10 @@ export function SessionPage() {
       } else {
         // Player: optimistic update + send to host
         if (gameState === "revealed") {
-          // For post-reveal editing, send action to host
+          // Post-reveal edit: apply locally so the player drops straight back
+          // into the revealed view with their new card, then let the host's
+          // broadcast confirm it.
+          store.editVoteAfterReveal(currentPlayerId, card);
           sendAction({ type: "vote", card });
         } else {
           sendVoteOptimistic(card);
@@ -492,7 +502,7 @@ export function SessionPage() {
             ) => (
               <CardSelectionPanel
                 cards={CARD_VALUES}
-                selectedCard={selectedCard}
+                selectedCard={panelSelectedCard}
                 gameState={gameState}
                 isEditing={isEditing}
                 voteDistribution={voteDistributionForPanel}

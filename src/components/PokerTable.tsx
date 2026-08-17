@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import type { Player, Vote, GameState, CardValue } from "../types";
 import { COFFEE_CARD } from "../types";
 import { PlayerCard } from "./PlayerCard";
+import type { PlayerCardProps } from "./PlayerCard";
 import "./PokerTable.css";
 
 export interface PokerTableProps {
@@ -287,6 +288,44 @@ export function PokerTable({
     return winningCards.has(card);
   };
 
+  /**
+   * Card props for one player, shared by the table and compact layouts.
+   *
+   * While the current player is editing their post-reveal vote, their own card
+   * drops back to the un-voted look so it reads as "re-picking" — everyone
+   * else's card stays revealed. The stored vote is untouched, so cancelling the
+   * edit flips the card straight back to its value.
+   */
+  const cardPropsFor = (player: Player): PlayerCardProps => {
+    const isReVoting =
+      gameState === "revealed" && isEditing && player.id === currentPlayerId;
+
+    if (isReVoting) {
+      return {
+        gameState: "voting",
+        hasVoted: false,
+        voteValue: null,
+        wasChanged: false,
+        playerName: player.displayName,
+      };
+    }
+
+    const voteValue = getVoteValue(player.id);
+    const isRevealedVote = gameState === "revealed" && voteValue !== null;
+
+    return {
+      gameState,
+      hasVoted: hasVoted(player.id),
+      voteValue,
+      wasChanged: votesChanged.has(player.id),
+      playerName: player.displayName,
+      isWinner: isRevealedVote && isWinnerCard(voteValue),
+      isSpecial: isRevealedVote && isSpecialCard(voteValue),
+      isIgnored: isRevealedVote && isIgnoredCard(voteValue),
+      distanceRatio: isRevealedVote ? getDistanceRatio(voteValue) : 0,
+    };
+  };
+
   const playerCount = players.length;
 
   // Measure the available space so the layout can fit itself to the container.
@@ -380,66 +419,14 @@ export function PokerTable({
           </button>
         )}
       </div>
-      <PlayerCard
-        gameState={gameState}
-        hasVoted={hasVoted(player.id)}
-        voteValue={getVoteValue(player.id)}
-        wasChanged={votesChanged.has(player.id)}
-        playerName={player.displayName}
-        isWinner={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isWinnerCard(getVoteValue(player.id)!)
-            : false
-        }
-        isSpecial={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isSpecialCard(getVoteValue(player.id)!)
-            : false
-        }
-        isIgnored={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isIgnoredCard(getVoteValue(player.id)!)
-            : false
-        }
-        distanceRatio={
-          gameState === "revealed" && hasVoted(player.id)
-            ? getDistanceRatio(getVoteValue(player.id)!)
-            : 0
-        }
-      />
+      <PlayerCard {...cardPropsFor(player)} />
     </div>
   );
 
   // Render a player for the compact grid fallback (name below the card).
   const renderGridPlayer = (player: Player) => (
     <div key={player.id} className="poker-table__grid-player">
-      <PlayerCard
-        gameState={gameState}
-        hasVoted={hasVoted(player.id)}
-        voteValue={getVoteValue(player.id)}
-        wasChanged={votesChanged.has(player.id)}
-        playerName={player.displayName}
-        isWinner={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isWinnerCard(getVoteValue(player.id)!)
-            : false
-        }
-        isSpecial={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isSpecialCard(getVoteValue(player.id)!)
-            : false
-        }
-        isIgnored={
-          gameState === "revealed" && hasVoted(player.id)
-            ? isIgnoredCard(getVoteValue(player.id)!)
-            : false
-        }
-        distanceRatio={
-          gameState === "revealed" && hasVoted(player.id)
-            ? getDistanceRatio(getVoteValue(player.id)!)
-            : 0
-        }
-      />
+      <PlayerCard {...cardPropsFor(player)} />
       <span className="poker-table__grid-name">{player.displayName}</span>
     </div>
   );

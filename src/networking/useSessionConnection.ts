@@ -83,7 +83,15 @@ export function useSessionConnection({
             });
             break;
           case "vote":
-            store.castVote(playerId, action.card);
+            // A vote that arrives while results are revealed is a post-reveal
+            // edit. It must not go through castVote: that rewrites the round
+            // back to "voting", and the broadcast then drops every client into
+            // the pre-reveal view with no way back to the revealed results.
+            if (store.gameState === "revealed") {
+              store.editVoteAfterReveal(playerId, action.card);
+            } else {
+              store.castVote(playerId, action.card);
+            }
             break;
           case "removeVote":
             store.removeVote(playerId);
